@@ -1,0 +1,21 @@
+.DS_Store
+*.swp
+
+# Dependencies
+node_modules/
+
+# Generated test/build artifacts
+build/
+CleanTube-webextension.zip
+src/Extension/_metadata/
+
+# Xcode local state
+DerivedData/
+xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+
+# App Store / signing exports
+*.ipa
+*.xcarchive
+*.dSYM.zip

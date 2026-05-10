@@ -1,0 +1,59 @@
+:root {
+  --cleantube-hidden-display: none !important;
+}
+
+html:not(.cleantube-shorts-allowed) ytd-mini-guide-entry-renderer[aria-label="Shorts"],
+html:not(.cleantube-shorts-allowed) ytd-guide-entry-renderer:has(a[title="Shorts"]),
+html:not(.cleantube-shorts-allowed) ytd-guide-entry-renderer:has(a[href^="/shorts"]),
+html:not(.cleantube-shorts-allowed) ytd-guide-entry-renderer:has(a[href*="/shorts/"]),
+html:not(.cleantube-shorts-allowed) ytd-rich-item-renderer:has(a[href^="/shorts"]),
+html:not(.cleantube-shorts-allowed) ytd-rich-item-renderer:has(a[href*="/shorts/"]),
+html:not(.cleantube-shorts-allowed) ytd-rich-section-renderer:has(a[href^="/shorts"]),
+html:not(.cleantube-shorts-allowed) ytd-rich-section-renderer:has(a[href*="/shorts/"]),
+html:not(.cleantube-shorts-allowed) ytd-reel-shelf-renderer,
+html:not(.cleantube-shorts-allowed) ytd-shorts,
+html:not(.cleantube-shorts-allowed) ytm-pivot-bar-item-renderer[tab-identifier*="shorts" i],
+html:not(.cleantube-shorts-allowed) ytm-pivot-bar-item-renderer[aria-label^="Shorts" i],
+html:not(.cleantube-shorts-allowed) ytm-pivot-bar-item-renderer[endpoint*="FEshorts"],
+html:not(.cleantube-shorts-allowed) ytm-pivot-bar-item-renderer[data-endpoint*="FEshorts"],
+html:not(.cleantube-shorts-allowed) ytm-pivot-bar-item-renderer[data-yt-endpoint*="FEshorts"],
+html:not(.cleantube-shorts-allowed) ytm-pivot-bar-item-renderer[data-params*="FEshorts"],
+html:not(.cleantube-shorts-allowed) ytm-pivot-bar-item-renderer:has(a[href^="/shorts"]),
+html:not(.cleantube-shorts-allowed) ytm-pivot-bar-item-renderer:has(a[href*="/shorts/"]),
+html:not(.cleantube-shorts-allowed) ytm-rich-item-renderer:has(a[href^="/shorts"]),
+html:not(.cleantube-shorts-allowed) ytm-rich-item-renderer:has(a[href*="/shorts/"]),
+html:not(.cleantube-shorts-allowed) ytm-rich-section-renderer:has(a[href^="/shorts"]),
+html:not(.cleantube-shorts-allowed) ytm-rich-section-renderer:has(a[href*="/shorts/"]),
+html:not(.cleantube-shorts-allowed) ytm-reel-shelf-renderer,
+html:not(.cleantube-shorts-allowed) ytm-shorts-lockup-view-model,
+html:not(.cleantube-shorts-allowed) ytm-shorts-carousel,
+html:not(.cleantube-shorts-allowed) a[title="Shorts"],
+html:not(.cleantube-shorts-allowed) a[href^="/shorts"],
+html:not(.cleantube-shorts-allowed) a[href*="/shorts/"] {
+  display: var(--cleantube-hidden-display);
+}
+
+html:not(.cleantube-community-allowed) ytd-backstage-post-renderer,
+html:not(.cleantube-community-allowed) ytd-backstage-post-thread-renderer,
+html:not(.cleantube-community-allowed) ytd-post-renderer,
+html:not(.cleantube-community-allowed) ytm-backstage-post-renderer,
+html:not(.cleantube-community-allowed) ytm-post-renderer,
+html:not(.cleantube-community-allowed) ytm-community-post-renderer,
+html:not(.cleantube-community-allowed) ytd-rich-item-renderer:has(a[href^="/post/"]),
+html:not(.cleantube-community-allowed) ytd-rich-item-renderer:has(a[href*="/post/"]),
+html:not(.cleantube-community-allowed) ytm-rich-item-renderer:has(a[href^="/post/"]),
+html:not(.cleantube-community-allowed) ytm-rich-item-renderer:has(a[href*="/post/"]),
+html:not(.cleantube-community-allowed) ytm-rich-item-renderer[data-yt-endpoint*="/post/"],
+html:not(.cleantube-community-allowed) ytm-rich-item-renderer[data-endpoint*="/post/"],
+html:not(.cleantube-community-allowed) ytd-rich-item-renderer[data-yt-endpoint*="/post/"],
+html:not(.cleantube-community-allowed) ytd-rich-item-renderer[data-endpoint*="/post/"],
+html:not(.cleantube-community-allowed) yt-lockup-view-model:has(a[href^="/post/"]),
+html:not(.cleantube-community-allowed) yt-lockup-view-model:has(a[href*="/post/"]),
+html:not(.cleantube-community-allowed) [data-content-type="post"],
+html:not(.cleantube-community-allowed) [is-post] {
+  display: var(--cleantube-hidden-display);
+}
+
+[data-cleantube-hidden] {
+  display: none !important;
+}
