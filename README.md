@@ -12,6 +12,7 @@ It cannot affect the native YouTube iOS app. Apple only lets Safari extensions r
 
 - Shorts tab/navigation entries on desktop and mobile YouTube.
 - Shorts recommendation cards and shelves, including dynamically inserted shelves.
+- Direct `/shorts/...` pages, which are redirected to subscriptions.
 
 ## Build For iPhone
 

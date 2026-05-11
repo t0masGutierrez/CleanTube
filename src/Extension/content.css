@@ -34,6 +34,27 @@ html:not(.cleantube-shorts-allowed) a[href*="/shorts/"] {
   display: var(--cleantube-hidden-display);
 }
 
+html:not(.cleantube-posts-allowed) ytd-backstage-post-renderer,
+html:not(.cleantube-posts-allowed) ytd-backstage-post-thread-renderer,
+html:not(.cleantube-posts-allowed) ytd-post-renderer,
+html:not(.cleantube-posts-allowed) ytm-backstage-post-renderer,
+html:not(.cleantube-posts-allowed) ytm-post-renderer,
+html:not(.cleantube-posts-allowed) ytm-community-post-renderer,
+html:not(.cleantube-posts-allowed) ytd-rich-item-renderer:has(a[href^="/post/"]),
+html:not(.cleantube-posts-allowed) ytd-rich-item-renderer:has(a[href*="/post/"]),
+html:not(.cleantube-posts-allowed) ytm-rich-item-renderer:has(a[href^="/post/"]),
+html:not(.cleantube-posts-allowed) ytm-rich-item-renderer:has(a[href*="/post/"]),
+html:not(.cleantube-posts-allowed) ytm-rich-item-renderer[data-yt-endpoint*="/post/"],
+html:not(.cleantube-posts-allowed) ytm-rich-item-renderer[data-endpoint*="/post/"],
+html:not(.cleantube-posts-allowed) ytd-rich-item-renderer[data-yt-endpoint*="/post/"],
+html:not(.cleantube-posts-allowed) ytd-rich-item-renderer[data-endpoint*="/post/"],
+html:not(.cleantube-posts-allowed) yt-lockup-view-model:has(a[href^="/post/"]),
+html:not(.cleantube-posts-allowed) yt-lockup-view-model:has(a[href*="/post/"]),
+html:not(.cleantube-posts-allowed) [data-content-type="post"],
+html:not(.cleantube-posts-allowed) [is-post] {
+  display: var(--cleantube-hidden-display);
+}
+
 [data-cleantube-hidden] {
   display: none !important;
 }

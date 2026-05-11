@@ -108,7 +108,7 @@
         }
       }
       settings = core.mergeSettings(Object.assign({}, settings, next));
-      if (!settings.enabled) {
+      if (!settings.blockShorts || !settings.blockPosts) {
         core.revealCleanTubeHidden(document);
       }
       schedule("settings-changed");

@@ -77,6 +77,12 @@ function fixtureHtml() {
   <ytd-guide-entry-renderer id="guide"><a href="/shorts" title="Shorts">Shorts</a></ytd-guide-entry-renderer>
   <ytd-rich-item-renderer id="short-card"><a href="/shorts/fixture">Short video</a></ytd-rich-item-renderer>
   <ytd-rich-item-renderer id="video-card"><a href="/watch?v=fixture">Regular video</a></ytd-rich-item-renderer>
+  <ytm-item-section-renderer id="feed-section" data-yt-endpoint='{"browseEndpoint":{"browseId":"FEhome"}}'>
+    <ytm-rich-item-renderer id="mobile-feed-short"><a href="/shorts/mobile-feed">Mobile feed short</a></ytm-rich-item-renderer>
+    <ytm-rich-item-renderer id="mobile-feed-video"><a href="/watch?v=mobile-feed">Mobile feed video</a></ytm-rich-item-renderer>
+  </ytm-item-section-renderer>
+  <ytd-backstage-post-thread-renderer id="community-post"></ytd-backstage-post-thread-renderer>
+  <ytm-rich-item-renderer id="metadata-post" data-yt-endpoint='{"urlEndpoint":{"url":"/post/UgkxMetadata"}}'></ytm-rich-item-renderer>
   <ytm-pivot-bar-item-renderer id="shorts-fe" tab-identifier="FEshorts">Shorts</ytm-pivot-bar-item-renderer>
   <ytm-pivot-bar-item-renderer id="shorts-text-only"><div class="pivot-shorts"></div><div class="pivot-bar-item-title">Shorts</div></ytm-pivot-bar-item-renderer>
   <script>
@@ -120,6 +126,11 @@ async function runChrome(url) {
       guide: document.querySelector("#guide")?.dataset.cleantubeHidden,
       shortCard: document.querySelector("#short-card")?.dataset.cleantubeHidden,
       videoCard: document.querySelector("#video-card")?.dataset.cleantubeHidden,
+      feedSection: document.querySelector("#feed-section")?.dataset.cleantubeHidden,
+      mobileFeedShort: document.querySelector("#mobile-feed-short")?.dataset.cleantubeHidden,
+      mobileFeedVideo: document.querySelector("#mobile-feed-video")?.dataset.cleantubeHidden,
+      communityPost: document.querySelector("#community-post")?.dataset.cleantubeHidden,
+      metadataPost: document.querySelector("#metadata-post")?.dataset.cleantubeHidden,
       shortsFe: document.querySelector("#shorts-fe")?.dataset.cleantubeHidden,
       shortsTextOnly: document.querySelector("#shorts-text-only")?.dataset.cleantubeHidden,
       lateShort: document.querySelector("#late-short")?.dataset.cleantubeHidden
@@ -148,7 +159,12 @@ async function main() {
   try {
     const result = await runChrome(`https://www.youtube.com:${port}/`);
     assert(result.videoCard === undefined, "regular video card should not be hidden");
+    assert(result.feedSection === undefined, "mobile feed section should not be hidden");
+    assert(result.mobileFeedVideo === undefined, "regular mobile feed video should not be hidden");
+    assert(result.communityPost === "post-container", "community post was not hidden");
+    assert(result.metadataPost === "post-metadata", "metadata-only community post was not hidden");
     assert(result.shortCard === "shorts-link", "short card was not hidden");
+    assert(result.mobileFeedShort === "shorts-link", "mobile feed short was not hidden");
     assert(result.guide === "shorts-link", "Shorts guide tab was not hidden");
     assert(result.shortsFe === "shorts-metadata", "metadata-only Shorts tab was not hidden");
     assert(result.shortsTextOnly === "shorts-nav", "text-only Shorts tab was not hidden");

@@ -2,11 +2,11 @@
   "use strict";
 
   const DEFAULT_SETTINGS = Object.freeze({
-    enabled: true,
     blockShorts: true,
-    redirectShorts: true,
-    redirectTarget: "/feed/subscriptions"
+    blockPosts: false
   });
+
+  const SHORTS_REDIRECT_TARGET = "/feed/subscriptions";
 
   function selectorList(selectors) {
     return selectors.join(",");
@@ -67,6 +67,34 @@
     "[data-content-type='shorts']"
   ]);
 
+  const POST_CANDIDATE_SELECTORS = selectorList([
+    "a[href]",
+    ENDPOINT_METADATA_SELECTOR
+  ]);
+
+  const POST_TARGET_SELECTORS = selectorList([
+    "ytd-rich-item-renderer",
+    "ytd-video-renderer",
+    "ytd-compact-video-renderer",
+    "ytd-grid-video-renderer",
+    "ytm-rich-item-renderer",
+    "ytm-video-with-context-renderer",
+    "yt-lockup-view-model",
+    "ytm-item-section-renderer",
+    "li"
+  ]);
+
+  const POST_CONTAINER_SELECTORS = selectorList([
+    "ytd-backstage-post-renderer",
+    "ytd-backstage-post-thread-renderer",
+    "ytd-post-renderer",
+    "ytm-backstage-post-renderer",
+    "ytm-post-renderer",
+    "ytm-community-post-renderer",
+    "[data-content-type='post']",
+    "[is-post]"
+  ]);
+
   function mergeSettings(settings) {
     const merged = {};
     const source = settings || {};
@@ -113,7 +141,7 @@
   }
 
   function findDescendantHref(element) {
-    if (!element || typeof element.querySelector !== "function") {
+    if (!element || element.localName !== "ytm-pivot-bar-item-renderer" || typeof element.querySelector !== "function") {
       return "";
     }
     try {
@@ -140,6 +168,10 @@
     return path === "/shorts" || path.startsWith("/shorts/");
   }
 
+  function isPostUrl(href, baseURI) {
+    return normalizePath(href, baseURI).startsWith("/post/");
+  }
+
   function textLooksLikeShorts(value) {
     return /^shorts\b/i.test(String(value || "").trim());
   }
@@ -162,6 +194,10 @@
 
   function metadataLooksLikeShorts(element) {
     return metadataContainsAny(element, ["feshorts", "/shorts", "\"shorts\""]);
+  }
+
+  function metadataLooksLikePost(element) {
+    return metadataContainsAny(element, ["/post/", "backstagepost", "communitypost"]);
   }
 
   function hideElement(element, reason) {
@@ -198,6 +234,13 @@
       return null;
     }
     return safeClosest(anchor, SHORTS_TARGET_SELECTORS) || anchor;
+  }
+
+  function findPostRemovalTarget(anchor) {
+    if (!anchor) {
+      return null;
+    }
+    return safeClosest(anchor, POST_TARGET_SELECTORS) || anchor;
   }
 
   function hideContainers(rootNode, selector, reason) {
@@ -239,18 +282,41 @@
     return hidden;
   }
 
+  function hidePosts(rootNode) {
+    const doc = getDocument(rootNode);
+    const baseURI = doc && doc.baseURI;
+    let hidden = hideContainers(rootNode, POST_CONTAINER_SELECTORS, "post-container");
+
+    for (const element of queryAll(rootNode, POST_CANDIDATE_SELECTORS)) {
+      const href = element.getAttribute("href") || "";
+      const isPostLink = href && isPostUrl(href, baseURI);
+      const isPostMetadata = metadataLooksLikePost(element);
+      if (!isPostLink && !isPostMetadata) {
+        continue;
+      }
+
+      const target = findPostRemovalTarget(element);
+      const reason = isPostMetadata && !isPostLink ? "post-metadata" : "post-link";
+      if (target && hideElement(target, reason)) {
+        hidden += 1;
+      }
+    }
+
+    return hidden;
+  }
+
   function updateDocumentClasses(doc, settings) {
     if (!doc || !doc.documentElement) {
       return;
     }
     const merged = mergeSettings(settings);
-    doc.documentElement.classList.toggle("cleantube-disabled", !merged.enabled);
-    doc.documentElement.classList.toggle("cleantube-shorts-allowed", !merged.enabled || !merged.blockShorts);
+    doc.documentElement.classList.toggle("cleantube-shorts-allowed", !merged.blockShorts);
+    doc.documentElement.classList.toggle("cleantube-posts-allowed", !merged.blockPosts);
   }
 
   function redirectShortsLocation(win, settings) {
     const merged = mergeSettings(settings);
-    if (!merged.enabled || !merged.blockShorts || !merged.redirectShorts || !win || !win.location) {
+    if (!merged.blockShorts || !win || !win.location) {
       return false;
     }
 
@@ -258,7 +324,7 @@
       return false;
     }
 
-    const target = new URL(merged.redirectTarget || DEFAULT_SETTINGS.redirectTarget, win.location.origin);
+    const target = new URL(SHORTS_REDIRECT_TARGET, win.location.origin);
     if (win.location.href === target.href) {
       return false;
     }
@@ -278,15 +344,16 @@
     updateDocumentClasses(doc, merged);
 
     const stats = {
-      shortsHidden: 0
+      shortsHidden: 0,
+      postsHidden: 0
     };
-
-    if (!merged.enabled) {
-      return stats;
-    }
 
     if (merged.blockShorts) {
       stats.shortsHidden = hideShorts(rootNode);
+    }
+
+    if (merged.blockPosts) {
+      stats.postsHidden = hidePosts(rootNode);
     }
 
     return stats;
@@ -297,16 +364,20 @@
     mergeSettings,
     normalizePath,
     isShortsUrl,
+    isPostUrl,
     textLooksLikeShorts,
     hideElement,
     revealCleanTubeHidden,
     hideShorts,
+    hidePosts,
     updateDocumentClasses,
     redirectShortsLocation,
     processDocument,
     selectors: {
       SHORTS_TARGET_SELECTORS,
       SHORTS_CONTAINER_SELECTORS,
+      POST_TARGET_SELECTORS,
+      POST_CONTAINER_SELECTORS,
       ENDPOINT_METADATA_ATTRIBUTES
     }
   };
