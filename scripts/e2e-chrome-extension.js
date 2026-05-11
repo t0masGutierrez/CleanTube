@@ -77,9 +77,8 @@ function fixtureHtml() {
   <ytd-guide-entry-renderer id="guide"><a href="/shorts" title="Shorts">Shorts</a></ytd-guide-entry-renderer>
   <ytd-rich-item-renderer id="short-card"><a href="/shorts/fixture">Short video</a></ytd-rich-item-renderer>
   <ytd-rich-item-renderer id="video-card"><a href="/watch?v=fixture">Regular video</a></ytd-rich-item-renderer>
-  <ytd-backstage-post-thread-renderer id="community-post"></ytd-backstage-post-thread-renderer>
   <ytm-pivot-bar-item-renderer id="shorts-fe" tab-identifier="FEshorts">Shorts</ytm-pivot-bar-item-renderer>
-  <ytm-rich-item-renderer id="metadata-post" data-yt-endpoint='{"urlEndpoint":{"url":"/post/UgkxMetadata"}}'></ytm-rich-item-renderer>
+  <ytm-pivot-bar-item-renderer id="shorts-text-only"><div class="pivot-shorts"></div><div class="pivot-bar-item-title">Shorts</div></ytm-pivot-bar-item-renderer>
   <script>
     setTimeout(() => {
       const late = document.createElement("ytm-rich-section-renderer");
@@ -121,9 +120,8 @@ async function runChrome(url) {
       guide: document.querySelector("#guide")?.dataset.cleantubeHidden,
       shortCard: document.querySelector("#short-card")?.dataset.cleantubeHidden,
       videoCard: document.querySelector("#video-card")?.dataset.cleantubeHidden,
-      communityPost: document.querySelector("#community-post")?.dataset.cleantubeHidden,
-      metadataPost: document.querySelector("#metadata-post")?.dataset.cleantubeHidden,
       shortsFe: document.querySelector("#shorts-fe")?.dataset.cleantubeHidden,
+      shortsTextOnly: document.querySelector("#shorts-text-only")?.dataset.cleantubeHidden,
       lateShort: document.querySelector("#late-short")?.dataset.cleantubeHidden
     }));
   } finally {
@@ -153,8 +151,7 @@ async function main() {
     assert(result.shortCard === "shorts-link", "short card was not hidden");
     assert(result.guide === "shorts-link", "Shorts guide tab was not hidden");
     assert(result.shortsFe === "shorts-metadata", "metadata-only Shorts tab was not hidden");
-    assert(result.communityPost === "community-post", "community post was not hidden");
-    assert(result.metadataPost === "community-metadata", "metadata-only community post was not hidden");
+    assert(result.shortsTextOnly === "shorts-nav", "text-only Shorts tab was not hidden");
     assert(result.lateShort === "shorts-link", "late-added Shorts shelf was not hidden");
   } finally {
     await new Promise(resolve => server.close(resolve));

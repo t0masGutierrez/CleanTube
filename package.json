@@ -8,7 +8,7 @@
     "build:xcodeproj": "cd src && xcodegen generate --spec project.yml",
     "browser:install": "npx @puppeteer/browsers install chrome@stable --path build/browsers --format '{{path}}'",
     "clean": "rm -rf build CleanTube-webextension.zip",
-    "icons:generate": "sips -z 48 48 src/Assets/icon-source.png --out src/Extension/icon-48.png >/dev/null && sips -z 128 128 src/Assets/icon-source.png --out src/Extension/icon-128.png >/dev/null",
+    "icons:generate": "node scripts/generate-icons.js",
     "test": "node --test tests/*.test.js",
     "test:e2e": "npm run browser:install --silent && node scripts/e2e-chrome-extension.js",
     "validate:extension": "node scripts/validate-extension.js",

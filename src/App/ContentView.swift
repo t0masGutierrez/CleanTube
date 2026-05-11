@@ -14,7 +14,7 @@ struct ContentView: View {
                 }
 
                 Section {
-                    Text("CleanTube hides YouTube Shorts navigation, Shorts recommendations, and community posts while you use YouTube in Safari.")
+                    Text("CleanTube hides YouTube Shorts navigation and Shorts recommendations while you use YouTube in Safari.")
                 }
             }
             .navigationTitle("CleanTube")

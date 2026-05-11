@@ -17,6 +17,20 @@ test("detects Shorts URLs without flagging normal videos", () => {
   assert.equal(core.isShortsUrl("/feed/subscriptions", "https://www.youtube.com/"), false);
 });
 
+test("exposes only Shorts settings and processing stats", () => {
+  const page = dom("<html><body></body></html>");
+
+  assert.deepEqual(Object.keys(core.DEFAULT_SETTINGS).sort(), [
+    "blockShorts",
+    "enabled",
+    "redirectShorts",
+    "redirectTarget"
+  ]);
+  assert.deepEqual(core.processDocument(page.window.document, core.DEFAULT_SETTINGS), {
+    shortsHidden: 0
+  });
+});
+
 test("hides desktop Shorts navigation and recommendation cards", () => {
   const page = dom(`
     <html><body>
@@ -44,6 +58,8 @@ test("hides mobile bottom Shorts tab and mobile Shorts shelves", () => {
       <ytm-pivot-bar-item-renderer id="shorts-fe" tab-identifier="FEshorts">Shorts</ytm-pivot-bar-item-renderer>
       <ytm-pivot-bar-item-renderer id="shorts-endpoint" endpoint='{"browseEndpoint":{"browseId":"FEshorts"}}'>Shorts</ytm-pivot-bar-item-renderer>
       <ytm-pivot-bar-item-renderer id="shorts-label" aria-label="Shorts, tab 2 of 5"></ytm-pivot-bar-item-renderer>
+      <ytm-pivot-bar-item-renderer id="shorts-text-only"><div class="pivot-bar-item-title">Shorts</div></ytm-pivot-bar-item-renderer>
+      <ytm-pivot-bar-item-renderer id="subscriptions-text-only"><div class="pivot-bar-item-title">Subscriptions</div></ytm-pivot-bar-item-renderer>
       <ytm-rich-section-renderer id="mobile-shelf"><a href="/shorts/abc">Short</a></ytm-rich-section-renderer>
       <ytm-video-with-context-renderer id="mobile-video"><a href="/watch?v=ok">Video</a></ytm-video-with-context-renderer>
     </body></html>
@@ -56,31 +72,10 @@ test("hides mobile bottom Shorts tab and mobile Shorts shelves", () => {
   assert.equal(page.window.document.querySelector("#shorts-fe").dataset.cleantubeHidden, "shorts-metadata");
   assert.equal(page.window.document.querySelector("#shorts-endpoint").dataset.cleantubeHidden, "shorts-metadata");
   assert.equal(page.window.document.querySelector("#shorts-label").dataset.cleantubeHidden, "shorts-nav");
+  assert.equal(page.window.document.querySelector("#shorts-text-only").dataset.cleantubeHidden, "shorts-nav");
+  assert.equal(page.window.document.querySelector("#subscriptions-text-only").dataset.cleantubeHidden, undefined);
   assert.equal(page.window.document.querySelector("#mobile-shelf").dataset.cleantubeHidden, "shorts-link");
   assert.equal(page.window.document.querySelector("#mobile-video").dataset.cleantubeHidden, undefined);
-});
-
-test("hides desktop and mobile community posts", () => {
-  const page = dom(`
-    <html><body>
-      <ytd-backstage-post-thread-renderer id="desktop-post"></ytd-backstage-post-thread-renderer>
-      <ytd-rich-item-renderer id="desktop-post-card"><a href="/post/UgkxCommunity">Community post</a></ytd-rich-item-renderer>
-      <ytm-backstage-post-renderer id="mobile-post"></ytm-backstage-post-renderer>
-      <ytm-rich-item-renderer id="mobile-post-card"><a href="/post/UgkxMobile">Community post</a></ytm-rich-item-renderer>
-      <ytm-rich-item-renderer id="metadata-post" data-yt-endpoint='{"urlEndpoint":{"url":"/post/UgkxMetadata"}}'></ytm-rich-item-renderer>
-      <ytd-rich-item-renderer id="video-card"><a href="/watch?v=ok">Regular video</a></ytd-rich-item-renderer>
-    </body></html>
-  `);
-
-  const stats = core.processDocument(page.window.document, core.DEFAULT_SETTINGS);
-
-  assert.equal(page.window.document.querySelector("#desktop-post").dataset.cleantubeHidden, "community-post");
-  assert.equal(page.window.document.querySelector("#desktop-post-card").dataset.cleantubeHidden, "community-link");
-  assert.equal(page.window.document.querySelector("#mobile-post").dataset.cleantubeHidden, "community-post");
-  assert.equal(page.window.document.querySelector("#mobile-post-card").dataset.cleantubeHidden, "community-link");
-  assert.equal(page.window.document.querySelector("#metadata-post").dataset.cleantubeHidden, "community-metadata");
-  assert.equal(page.window.document.querySelector("#video-card").dataset.cleantubeHidden, undefined);
-  assert.equal(stats.communityHidden, 5);
 });
 
 test("redirects Shorts pages to subscriptions", () => {
@@ -101,16 +96,13 @@ test("respects disabled settings", () => {
   const page = dom(`
     <html><body>
       <ytd-rich-item-renderer id="short-card"><a href="/shorts/abc">Short</a></ytd-rich-item-renderer>
-      <ytd-backstage-post-thread-renderer id="community-post"></ytd-backstage-post-thread-renderer>
     </body></html>
   `);
 
   const stats = core.processDocument(page.window.document, { enabled: false });
 
   assert.equal(page.window.document.querySelector("#short-card").dataset.cleantubeHidden, undefined);
-  assert.equal(page.window.document.querySelector("#community-post").dataset.cleantubeHidden, undefined);
   assert.deepEqual(stats, {
-    shortsHidden: 0,
-    communityHidden: 0
+    shortsHidden: 0
   });
 });

@@ -17,6 +17,7 @@
 		7C00A4C14CC8BDCA20044FA6 /* SafariExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 62509DEE2307F0AA0A38E2E7 /* SafariExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		96ACA85F80997B17D4FD44A1 /* popup.js in Resources */ = {isa = PBXBuildFile; fileRef = D74B0662449961359B8FCB78 /* popup.js */; };
 		976815EEB7A8845105EA2F4E /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA1112692F025C495214D613 /* ContentView.swift */; };
+		D7CC1DDB097C4DB6F359685B /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 91735A6C42303514002C941B /* Assets.xcassets */; };
 		DCD25CB4D490A90A8EDAEB7F /* core.js in Resources */ = {isa = PBXBuildFile; fileRef = CAA1015551E6E3B51D81578A /* core.js */; };
 		E2CD1376380F2C92B9892A01 /* icon-48.png in Resources */ = {isa = PBXBuildFile; fileRef = 6AC329CCBEB35C65FBEF5625 /* icon-48.png */; };
 		FA3DEC95C38CB2BCDC0FA54F /* SafariWebExtensionHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = E837ADCA745EC329B5709FFB /* SafariWebExtensionHandler.swift */; };
@@ -47,12 +48,13 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		03101E4C2C034762D96C77D8 /* CleanTube.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CleanTube.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		03101E4C2C034762D96C77D8 /* CleanTube.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = CleanTube.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		1CE56E6D09C0962AAA56B34A /* manifest.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = manifest.json; sourceTree = "<group>"; };
 		319FC70896B970C3A6194AA2 /* popup.css */ = {isa = PBXFileReference; lastKnownFileType = text.css; path = popup.css; sourceTree = "<group>"; };
-		62509DEE2307F0AA0A38E2E7 /* SafariExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = SafariExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		62509DEE2307F0AA0A38E2E7 /* SafariExtension.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = SafariExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		6AC329CCBEB35C65FBEF5625 /* icon-48.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "icon-48.png"; sourceTree = "<group>"; };
 		87F8A8376CADD714F06F791A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		91735A6C42303514002C941B /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		96A75D9E70925D76808D4729 /* CleanTubeApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CleanTubeApp.swift; sourceTree = "<group>"; };
 		9C77746FF484C901084EB7B5 /* content.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = content.js; sourceTree = "<group>"; };
 		B2B555351B39E585528E872A /* popup.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; path = popup.html; sourceTree = "<group>"; };
@@ -78,6 +80,7 @@
 		55B4F2BF9259C991A5F2EBC1 /* App */ = {
 			isa = PBXGroup;
 			children = (
+				91735A6C42303514002C941B /* Assets.xcassets */,
 				96A75D9E70925D76808D4729 /* CleanTubeApp.swift */,
 				EA1112692F025C495214D613 /* ContentView.swift */,
 				87F8A8376CADD714F06F791A /* Info.plist */,
@@ -128,6 +131,7 @@
 			buildConfigurationList = B102E8D927FB52692D4DBC5D /* Build configuration list for PBXNativeTarget "CleanTube" */;
 			buildPhases = (
 				05FB23D88574A8CDBC711F72 /* Sources */,
+				96345262A765E3C44C9E34D9 /* Resources */,
 				B14853B1112C871398945377 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
@@ -167,7 +171,15 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
-				LastUpgradeCheck = 2640;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					63BB38EDDE97BF4358011165 = {
+						DevelopmentTeam = 2PWJB7XYQL;
+					};
+					D394B67C446C6B4882C36442 = {
+						DevelopmentTeam = 2PWJB7XYQL;
+					};
+				};
 			};
 			buildConfigurationList = 6B816333978F2F70721D55DD /* Build configuration list for PBXProject "CleanTube" */;
 			developmentRegion = en;
@@ -203,6 +215,14 @@
 				1C39B1A7420CFC15B8FC804B /* popup.css in Resources */,
 				6CD360B0BC01175226FE8EC3 /* popup.html in Resources */,
 				96ACA85F80997B17D4FD44A1 /* popup.js in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		96345262A765E3C44C9E34D9 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D7CC1DDB097C4DB6F359685B /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

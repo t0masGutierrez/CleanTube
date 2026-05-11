@@ -3,7 +3,7 @@
   "name": "CleanTube",
   "short_name": "CleanTube",
   "version": "0.1.0",
-  "description": "Hides YouTube Shorts and community posts in Safari.",
+  "description": "Hides YouTube Shorts in Safari.",
   "author": "Local",
   "permissions": [
     "storage"

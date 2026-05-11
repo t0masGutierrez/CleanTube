@@ -4,7 +4,6 @@
   const DEFAULT_SETTINGS = Object.freeze({
     enabled: true,
     blockShorts: true,
-    blockCommunity: true,
     redirectShorts: true,
     redirectTarget: "/feed/subscriptions"
   });
@@ -54,11 +53,7 @@
     "a[href]",
     "[aria-label]",
     "[title]",
-    ENDPOINT_METADATA_SELECTOR
-  ]);
-
-  const COMMUNITY_CANDIDATE_SELECTORS = selectorList([
-    "a[href]",
+    "ytm-pivot-bar-item-renderer",
     ENDPOINT_METADATA_SELECTOR
   ]);
 
@@ -72,31 +67,17 @@
     "[data-content-type='shorts']"
   ]);
 
-  const COMMUNITY_TARGET_SELECTORS = selectorList([
-    "ytd-rich-item-renderer",
-    "ytd-video-renderer",
-    "ytd-compact-video-renderer",
-    "ytd-grid-video-renderer",
-    "ytm-rich-item-renderer",
-    "ytm-video-with-context-renderer",
-    "yt-lockup-view-model",
-    "ytm-item-section-renderer",
-    "li"
-  ]);
-
-  const COMMUNITY_CONTAINER_SELECTORS = selectorList([
-    "ytd-backstage-post-renderer",
-    "ytd-backstage-post-thread-renderer",
-    "ytd-post-renderer",
-    "ytm-backstage-post-renderer",
-    "ytm-post-renderer",
-    "ytm-community-post-renderer",
-    "[data-content-type='post']",
-    "[is-post]"
-  ]);
-
   function mergeSettings(settings) {
-    return Object.assign({}, DEFAULT_SETTINGS, settings || {});
+    const merged = {};
+    const source = settings || {};
+    for (const key of Object.keys(DEFAULT_SETTINGS)) {
+      if (Object.prototype.hasOwnProperty.call(source, key)) {
+        merged[key] = source[key];
+      } else {
+        merged[key] = DEFAULT_SETTINGS[key];
+      }
+    }
+    return merged;
   }
 
   function getDocument(rootNode) {
@@ -131,6 +112,18 @@
     }
   }
 
+  function findDescendantHref(element) {
+    if (!element || typeof element.querySelector !== "function") {
+      return "";
+    }
+    try {
+      const anchor = element.querySelector("a[href]");
+      return anchor ? anchor.getAttribute("href") || "" : "";
+    } catch (error) {
+      return "";
+    }
+  }
+
   function normalizePath(href, baseURI) {
     if (!href || typeof href !== "string") {
       return "";
@@ -145,10 +138,6 @@
   function isShortsUrl(href, baseURI) {
     const path = normalizePath(href, baseURI);
     return path === "/shorts" || path.startsWith("/shorts/");
-  }
-
-  function isCommunityPostUrl(href, baseURI) {
-    return normalizePath(href, baseURI).startsWith("/post/");
   }
 
   function textLooksLikeShorts(value) {
@@ -173,10 +162,6 @@
 
   function metadataLooksLikeShorts(element) {
     return metadataContainsAny(element, ["feshorts", "/shorts", "\"shorts\""]);
-  }
-
-  function metadataLooksLikeCommunityPost(element) {
-    return metadataContainsAny(element, ["/post/", "backstagepost", "communitypost"]);
   }
 
   function hideElement(element, reason) {
@@ -215,13 +200,6 @@
     return safeClosest(anchor, SHORTS_TARGET_SELECTORS) || anchor;
   }
 
-  function findCommunityRemovalTarget(anchor) {
-    if (!anchor) {
-      return null;
-    }
-    return safeClosest(anchor, COMMUNITY_TARGET_SELECTORS) || anchor;
-  }
-
   function hideContainers(rootNode, selector, reason) {
     let hidden = 0;
     for (const element of queryAll(rootNode, selector)) {
@@ -239,7 +217,7 @@
 
     const candidates = queryAll(rootNode, SHORTS_CANDIDATE_SELECTORS);
     for (const element of candidates) {
-      const href = element.getAttribute("href") || "";
+      const href = element.getAttribute("href") || findDescendantHref(element);
       const title = element.getAttribute("title") || "";
       const label = element.getAttribute("aria-label") || "";
       const text = element.textContent || "";
@@ -261,27 +239,6 @@
     return hidden;
   }
 
-  function hideCommunityPosts(rootNode) {
-    const doc = getDocument(rootNode);
-    const baseURI = doc && doc.baseURI;
-    let hidden = hideContainers(rootNode, COMMUNITY_CONTAINER_SELECTORS, "community-post");
-
-    for (const element of queryAll(rootNode, COMMUNITY_CANDIDATE_SELECTORS)) {
-      const href = element.getAttribute("href") || "";
-      const isCommunityLink = href && isCommunityPostUrl(href, baseURI);
-      const isCommunityMetadata = metadataLooksLikeCommunityPost(element);
-      if (!isCommunityLink && !isCommunityMetadata) {
-        continue;
-      }
-      const target = findCommunityRemovalTarget(element);
-      const reason = isCommunityMetadata && !isCommunityLink ? "community-metadata" : "community-link";
-      if (target && hideElement(target, reason)) {
-        hidden += 1;
-      }
-    }
-    return hidden;
-  }
-
   function updateDocumentClasses(doc, settings) {
     if (!doc || !doc.documentElement) {
       return;
@@ -289,7 +246,6 @@
     const merged = mergeSettings(settings);
     doc.documentElement.classList.toggle("cleantube-disabled", !merged.enabled);
     doc.documentElement.classList.toggle("cleantube-shorts-allowed", !merged.enabled || !merged.blockShorts);
-    doc.documentElement.classList.toggle("cleantube-community-allowed", !merged.enabled || !merged.blockCommunity);
   }
 
   function redirectShortsLocation(win, settings) {
@@ -322,8 +278,7 @@
     updateDocumentClasses(doc, merged);
 
     const stats = {
-      shortsHidden: 0,
-      communityHidden: 0
+      shortsHidden: 0
     };
 
     if (!merged.enabled) {
@@ -334,10 +289,6 @@
       stats.shortsHidden = hideShorts(rootNode);
     }
 
-    if (merged.blockCommunity) {
-      stats.communityHidden = hideCommunityPosts(rootNode);
-    }
-
     return stats;
   }
 
@@ -346,20 +297,16 @@
     mergeSettings,
     normalizePath,
     isShortsUrl,
-    isCommunityPostUrl,
     textLooksLikeShorts,
     hideElement,
     revealCleanTubeHidden,
     hideShorts,
-    hideCommunityPosts,
     updateDocumentClasses,
     redirectShortsLocation,
     processDocument,
     selectors: {
       SHORTS_TARGET_SELECTORS,
       SHORTS_CONTAINER_SELECTORS,
-      COMMUNITY_TARGET_SELECTORS,
-      COMMUNITY_CONTAINER_SELECTORS,
       ENDPOINT_METADATA_ATTRIBUTES
     }
   };

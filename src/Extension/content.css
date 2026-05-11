@@ -18,6 +18,7 @@ html:not(.cleantube-shorts-allowed) ytm-pivot-bar-item-renderer[endpoint*="FEsho
 html:not(.cleantube-shorts-allowed) ytm-pivot-bar-item-renderer[data-endpoint*="FEshorts"],
 html:not(.cleantube-shorts-allowed) ytm-pivot-bar-item-renderer[data-yt-endpoint*="FEshorts"],
 html:not(.cleantube-shorts-allowed) ytm-pivot-bar-item-renderer[data-params*="FEshorts"],
+html:not(.cleantube-shorts-allowed) ytm-pivot-bar-item-renderer:has(.pivot-shorts),
 html:not(.cleantube-shorts-allowed) ytm-pivot-bar-item-renderer:has(a[href^="/shorts"]),
 html:not(.cleantube-shorts-allowed) ytm-pivot-bar-item-renderer:has(a[href*="/shorts/"]),
 html:not(.cleantube-shorts-allowed) ytm-rich-item-renderer:has(a[href^="/shorts"]),
@@ -30,27 +31,6 @@ html:not(.cleantube-shorts-allowed) ytm-shorts-carousel,
 html:not(.cleantube-shorts-allowed) a[title="Shorts"],
 html:not(.cleantube-shorts-allowed) a[href^="/shorts"],
 html:not(.cleantube-shorts-allowed) a[href*="/shorts/"] {
-  display: var(--cleantube-hidden-display);
-}
-
-html:not(.cleantube-community-allowed) ytd-backstage-post-renderer,
-html:not(.cleantube-community-allowed) ytd-backstage-post-thread-renderer,
-html:not(.cleantube-community-allowed) ytd-post-renderer,
-html:not(.cleantube-community-allowed) ytm-backstage-post-renderer,
-html:not(.cleantube-community-allowed) ytm-post-renderer,
-html:not(.cleantube-community-allowed) ytm-community-post-renderer,
-html:not(.cleantube-community-allowed) ytd-rich-item-renderer:has(a[href^="/post/"]),
-html:not(.cleantube-community-allowed) ytd-rich-item-renderer:has(a[href*="/post/"]),
-html:not(.cleantube-community-allowed) ytm-rich-item-renderer:has(a[href^="/post/"]),
-html:not(.cleantube-community-allowed) ytm-rich-item-renderer:has(a[href*="/post/"]),
-html:not(.cleantube-community-allowed) ytm-rich-item-renderer[data-yt-endpoint*="/post/"],
-html:not(.cleantube-community-allowed) ytm-rich-item-renderer[data-endpoint*="/post/"],
-html:not(.cleantube-community-allowed) ytd-rich-item-renderer[data-yt-endpoint*="/post/"],
-html:not(.cleantube-community-allowed) ytd-rich-item-renderer[data-endpoint*="/post/"],
-html:not(.cleantube-community-allowed) yt-lockup-view-model:has(a[href^="/post/"]),
-html:not(.cleantube-community-allowed) yt-lockup-view-model:has(a[href*="/post/"]),
-html:not(.cleantube-community-allowed) [data-content-type="post"],
-html:not(.cleantube-community-allowed) [is-post] {
   display: var(--cleantube-hidden-display);
 }
 

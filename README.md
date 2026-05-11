@@ -4,7 +4,7 @@
   <img src="src/Assets/icon-source.png" width="128" alt="CleanTube icon">
 </p>
 
-CleanTube is a Safari Web Extension for iOS Safari that hides YouTube Shorts surfaces and community posts on `youtube.com`, `www.youtube.com`, and `m.youtube.com`.
+CleanTube is a Safari Web Extension for iOS Safari that hides YouTube Shorts surfaces on `youtube.com`, `www.youtube.com`, and `m.youtube.com`.
 
 It cannot affect the native YouTube iOS app. Apple only lets Safari extensions run inside Safari.
 
@@ -12,8 +12,6 @@ It cannot affect the native YouTube iOS app. Apple only lets Safari extensions r
 
 - Shorts tab/navigation entries on desktop and mobile YouTube.
 - Shorts recommendation cards and shelves, including dynamically inserted shelves.
-- Direct `/shorts/...` pages, which are redirected to subscriptions.
-- Community posts on desktop and mobile YouTube.
 
 ## Build For iPhone
 
@@ -44,6 +42,7 @@ In Xcode:
 3. Build and run `CleanTube` on your iPhone.
 4. On the iPhone, open Settings > Safari > Extensions.
 5. Enable CleanTube and allow access to YouTube.
+6. If you cannot enable CleanTube then open Settings > General > VPN & Device Management > Trust Developer App
 
 ## Alternate Packaging
 

@@ -3,7 +3,7 @@
 
   const core = globalThis.CleanTubeCore;
   const storage = (globalThis.browser && browser.storage) || (globalThis.chrome && chrome.storage);
-  const ids = ["enabled", "blockShorts", "blockCommunity", "redirectShorts"];
+  const ids = ["enabled", "blockShorts", "redirectShorts"];
 
   function setControls(values) {
     const settings = core.mergeSettings(values);

@@ -80,4 +80,4 @@ for (const entry of fs.readdirSync(extensionDir)) {
   assert(allowedExtensionFiles.has(entry), `unexpected extension file: ${entry}`);
 }
 
-console.log("Extension manifest is valid for Shorts and community filtering only.");
+console.log("Extension manifest is valid for Shorts filtering only.");
