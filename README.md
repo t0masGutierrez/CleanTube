@@ -4,7 +4,7 @@
   <img src="src/Assets/icon-source.png" width="128" alt="CleanTube icon">
 </p>
 
-CleanTube is a Safari Web Extension for iOS Safari that hides YouTube Shorts surfaces on `youtube.com`, `www.youtube.com`, and `m.youtube.com`.
+CleanTube is a Safari Web Extension for iOS that hides YouTube Shorts surfaces on `youtube.com`, `www.youtube.com`, and `m.youtube.com`.
 
 It cannot affect the native YouTube iOS app. Apple only lets Safari extensions run inside Safari.
 
