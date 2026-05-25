@@ -161,8 +161,8 @@ async function main() {
     assert(result.videoCard === undefined, "regular video card should not be hidden");
     assert(result.feedSection === undefined, "mobile feed section should not be hidden");
     assert(result.mobileFeedVideo === undefined, "regular mobile feed video should not be hidden");
-    assert(result.communityPost === "post-container", "community post was not hidden");
-    assert(result.metadataPost === "post-metadata", "metadata-only community post was not hidden");
+    assert(result.communityPost === undefined, "community post should not be hidden by default");
+    assert(result.metadataPost === undefined, "metadata-only community post should not be hidden by default");
     assert(result.shortCard === "shorts-link", "short card was not hidden");
     assert(result.mobileFeedShort === "shorts-link", "mobile feed short was not hidden");
     assert(result.guide === "shorts-link", "Shorts guide tab was not hidden");
