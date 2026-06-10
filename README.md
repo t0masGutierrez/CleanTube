@@ -57,3 +57,13 @@ In Xcode:
 4. On the iPhone, open Settings > General > VPN & Device Management > Trust Developer App
 5. On the iPhone, open Settings > Safari > Extensions.
 6. Enable CleanTube and allow access to YouTube.
+
+## Refresh Expired iPhone Install
+
+Free Apple development provisioning can expire installed apps after several days. If iOS says "CleanTube" is no longer available, keep the iPhone unlocked and reachable by USB or wireless device pairing, then run:
+
+```sh
+npm run ios:refresh
+```
+
+If iOS blocks launch after reinstalling, trust the developer profile again in Settings > General > VPN & Device Management.
