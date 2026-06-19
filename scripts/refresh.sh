@@ -7,6 +7,7 @@ APP_PATH="$DERIVED_DATA_PATH/Build/Products/Debug-iphoneos/CleanTube.app"
 BUNDLE_ID="com.local.CleanTube"
 DEFAULT_DEVICE_ID="D8521F80-D6CB-5581-B0C4-C01FA445BD18"
 DEVICE="${1:-${CLEANTUBE_DEVICE:-${CLEANTUBE_DEVICE_ID:-$DEFAULT_DEVICE_ID}}}"
+VERBOSE="${CLEANTUBE_VERBOSE:-0}"
 
 print_help() {
   cat <<EOF
@@ -17,10 +18,60 @@ Environment:
   CLEANTUBE_DEVICE           Device identifier or name to install onto.
   CLEANTUBE_DEVICE_ID        Same as CLEANTUBE_DEVICE.
   CLEANTUBE_DEVICE_ATTEMPTS  Install/launch attempts for flaky wireless connections.
+  CLEANTUBE_VERBOSE=1        Show full command output instead of summarized checkpoints.
 
 Default device:
   $DEFAULT_DEVICE_ID
 EOF
+}
+
+is_verbose() {
+  [[ "$VERBOSE" == "1" || "$VERBOSE" == "true" || "$VERBOSE" == "yes" ]]
+}
+
+print_log_summary() {
+  local log_file="$1"
+  local important
+
+  important="$(
+    grep -Ei "error:|warning:|ERROR:|FAILED|No profiles|No Accounts|RequestDenied|invalid code signature|profile has not been explicitly trusted|connection reset|connection.*invalidated|could not be established|Transport error" "$log_file" | tail -n 30 || true
+  )"
+
+  if [[ -n "$important" ]]; then
+    echo "Important output:" >&2
+    echo "$important" >&2
+  else
+    echo "Last output:" >&2
+    tail -n 30 "$log_file" >&2
+  fi
+}
+
+run_xcodegen() {
+  local log_file
+  local exit_status
+  log_file="$(mktemp "${TMPDIR:-/tmp}/cleantube-xcodegen.XXXXXX")"
+
+  echo "Generating Xcode project..."
+  set +e
+  if is_verbose; then
+    (cd "$ROOT_DIR/src" && xcodegen generate --spec project.yml) 2>&1 | tee "$log_file"
+    exit_status=$?
+  else
+    (cd "$ROOT_DIR/src" && xcodegen generate --spec project.yml) > "$log_file" 2>&1
+    exit_status=$?
+  fi
+  set -e
+
+  if [[ "$exit_status" -eq 0 ]]; then
+    echo "[ok] Xcode project generated"
+    rm -f "$log_file"
+    return 0
+  fi
+
+  echo "[failed] Xcode project generation failed" >&2
+  print_log_summary "$log_file"
+  echo "Full log: $log_file" >&2
+  return "$exit_status"
 }
 
 explain_device_error() {
@@ -83,18 +134,27 @@ run_build_command() {
   local exit_status
   log_file="$(mktemp "${TMPDIR:-/tmp}/cleantube-build.XXXXXX")"
 
+  echo "Building fresh iOS app..."
   set +e
-  "$@" 2>&1 | tee "$log_file"
-  exit_status=$?
+  if is_verbose; then
+    "$@" 2>&1 | tee "$log_file"
+    exit_status=$?
+  else
+    "$@" > "$log_file" 2>&1
+    exit_status=$?
+  fi
   set -e
 
   if [[ "$exit_status" -eq 0 ]]; then
+    echo "[ok] iOS app built and signed"
     rm -f "$log_file"
     return 0
   fi
 
+  echo "[failed] iOS build failed" >&2
+  print_log_summary "$log_file"
   explain_build_error "$log_file"
-  rm -f "$log_file"
+  echo "Full log: $log_file" >&2
   return "$exit_status"
 }
 
@@ -111,30 +171,38 @@ run_device_command() {
     log_file="$(mktemp "${TMPDIR:-/tmp}/cleantube-device.XXXXXX")"
 
     if [[ "$attempt" -eq 1 ]]; then
-      echo "$label"
+      echo "$label..."
     else
-      echo "$label (retry $attempt/$attempts)..."
+      echo "$label retry $attempt/$attempts..."
     fi
 
     set +e
-    "$@" 2>&1 | tee "$log_file"
-    exit_status=$?
+    if is_verbose; then
+      "$@" 2>&1 | tee "$log_file"
+      exit_status=$?
+    else
+      "$@" > "$log_file" 2>&1
+      exit_status=$?
+    fi
     set -e
 
     if [[ "$exit_status" -eq 0 ]]; then
+      echo "[ok] $label"
       rm -f "$log_file"
       return 0
     fi
 
     if [[ "$attempt" -lt "$attempts" ]] && is_transient_device_error "$log_file"; then
       rm -f "$log_file"
-      echo "Device connection dropped; waiting before retry..." >&2
+      echo "[retry] Device connection dropped; waiting before retry..." >&2
       sleep 3
       continue
     fi
 
+    echo "[failed] $label" >&2
+    print_log_summary "$log_file"
     explain_device_error "$log_file"
-    rm -f "$log_file"
+    echo "Full log: $log_file" >&2
     return "$exit_status"
   done
 }
@@ -148,12 +216,11 @@ esac
 
 cd "$ROOT_DIR"
 
-echo "Generating Xcode project..."
-npm run build:xcodeproj
+run_xcodegen
 
-echo "Building fresh iOS app..."
 rm -rf "$DERIVED_DATA_PATH"
 run_build_command xcodebuild \
+  -quiet \
   -project src/CleanTube.xcodeproj \
   -scheme CleanTube \
   -configuration Debug \
@@ -168,12 +235,12 @@ if [[ ! -d "$APP_PATH" ]]; then
 fi
 
 echo "Refreshing CleanTube on device: $DEVICE"
-run_device_command "Installing app..." \
+run_device_command "Installing app" \
   xcrun devicectl device install app \
     --device "$DEVICE" \
     "$APP_PATH"
 
-run_device_command "Launching app..." \
+run_device_command "Launching app" \
   xcrun devicectl device process launch \
     --device "$DEVICE" \
     "$BUNDLE_ID"
