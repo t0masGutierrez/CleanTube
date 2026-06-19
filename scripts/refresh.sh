@@ -14,8 +14,9 @@ Usage:
   scripts/refresh.sh [device-id-or-device-name]
 
 Environment:
-  CLEANTUBE_DEVICE     Device identifier or name to install onto.
-  CLEANTUBE_DEVICE_ID  Same as CLEANTUBE_DEVICE.
+  CLEANTUBE_DEVICE           Device identifier or name to install onto.
+  CLEANTUBE_DEVICE_ID        Same as CLEANTUBE_DEVICE.
+  CLEANTUBE_DEVICE_ATTEMPTS  Install/launch attempts for flaky wireless connections.
 
 Default device:
   $DEFAULT_DEVICE_ID
@@ -50,6 +51,11 @@ EOF
   fi
 }
 
+is_transient_device_error() {
+  local log_file="$1"
+  grep -qi "connection reset\\|connection.*invalidated\\|could not be established\\|Transport error" "$log_file"
+}
+
 explain_build_error() {
   local log_file="$1"
 
@@ -74,17 +80,22 @@ EOF
 
 run_build_command() {
   local log_file
-  log_file="$(mktemp "${TMPDIR:-/tmp}/cleantube-build.XXXXXX.log")"
+  local exit_status
+  log_file="$(mktemp "${TMPDIR:-/tmp}/cleantube-build.XXXXXX")"
 
-  if "$@" 2>&1 | tee "$log_file"; then
+  set +e
+  "$@" 2>&1 | tee "$log_file"
+  exit_status=$?
+  set -e
+
+  if [[ "$exit_status" -eq 0 ]]; then
     rm -f "$log_file"
     return 0
   fi
 
-  local status=$?
   explain_build_error "$log_file"
   rm -f "$log_file"
-  return "$status"
+  return "$exit_status"
 }
 
 run_device_command() {
@@ -92,18 +103,40 @@ run_device_command() {
   shift
 
   local log_file
-  log_file="$(mktemp "${TMPDIR:-/tmp}/cleantube-device.XXXXXX.log")"
+  local attempts="${CLEANTUBE_DEVICE_ATTEMPTS:-3}"
+  local attempt
+  local exit_status
 
-  echo "$label"
-  if "$@" 2>&1 | tee "$log_file"; then
+  for attempt in $(seq 1 "$attempts"); do
+    log_file="$(mktemp "${TMPDIR:-/tmp}/cleantube-device.XXXXXX")"
+
+    if [[ "$attempt" -eq 1 ]]; then
+      echo "$label"
+    else
+      echo "$label (retry $attempt/$attempts)..."
+    fi
+
+    set +e
+    "$@" 2>&1 | tee "$log_file"
+    exit_status=$?
+    set -e
+
+    if [[ "$exit_status" -eq 0 ]]; then
+      rm -f "$log_file"
+      return 0
+    fi
+
+    if [[ "$attempt" -lt "$attempts" ]] && is_transient_device_error "$log_file"; then
+      rm -f "$log_file"
+      echo "Device connection dropped; waiting before retry..." >&2
+      sleep 3
+      continue
+    fi
+
+    explain_device_error "$log_file"
     rm -f "$log_file"
-    return 0
-  fi
-
-  local status=$?
-  explain_device_error "$log_file"
-  rm -f "$log_file"
-  return "$status"
+    return "$exit_status"
+  done
 }
 
 case "${1:-}" in
