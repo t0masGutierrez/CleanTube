@@ -50,6 +50,43 @@ EOF
   fi
 }
 
+explain_build_error() {
+  local log_file="$1"
+
+  if grep -qi "No Accounts" "$log_file"; then
+    cat <<'EOF' >&2
+
+Xcode could not renew the iOS development provisioning profiles because it does not see an Apple account.
+Open Xcode, then go to:
+
+  Xcode > Settings > Accounts > + > Apple Account
+
+Sign in with the Apple ID from Bitwarden, make sure your development team is available, then run this script again.
+EOF
+  elif grep -qi "No profiles for 'com.local.CleanTube" "$log_file"; then
+    cat <<'EOF' >&2
+
+Xcode could not find valid CleanTube provisioning profiles.
+They may have expired. Once your Apple account is available in Xcode, rerun this script so automatic signing can create fresh profiles.
+EOF
+  fi
+}
+
+run_build_command() {
+  local log_file
+  log_file="$(mktemp "${TMPDIR:-/tmp}/cleantube-build.XXXXXX.log")"
+
+  if "$@" 2>&1 | tee "$log_file"; then
+    rm -f "$log_file"
+    return 0
+  fi
+
+  local status=$?
+  explain_build_error "$log_file"
+  rm -f "$log_file"
+  return "$status"
+}
+
 run_device_command() {
   local label="$1"
   shift
@@ -83,7 +120,7 @@ npm run build:xcodeproj
 
 echo "Building fresh iOS app..."
 rm -rf "$DERIVED_DATA_PATH"
-xcodebuild \
+run_build_command xcodebuild \
   -project src/CleanTube.xcodeproj \
   -scheme CleanTube \
   -configuration Debug \
