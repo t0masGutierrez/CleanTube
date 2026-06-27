@@ -3,7 +3,9 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 DERIVED_DATA_PATH="$ROOT_DIR/build/DerivedData"
-APP_PATH="$DERIVED_DATA_PATH/Build/Products/Debug-iphoneos/CleanTube.app"
+TARGET_PRODUCTS_PATH="$ROOT_DIR/build/TargetProducts"
+TARGET_INTERMEDIATES_PATH="$ROOT_DIR/build/TargetIntermediates"
+APP_PATH="$TARGET_PRODUCTS_PATH/Debug-iphoneos/CleanTube.app"
 BUNDLE_ID="com.local.CleanTube"
 DEFAULT_DEVICE_ID="D8521F80-D6CB-5581-B0C4-C01FA445BD18"
 DEVICE="${1:-${CLEANTUBE_DEVICE:-${CLEANTUBE_DEVICE_ID:-$DEFAULT_DEVICE_ID}}}"
@@ -25,6 +27,30 @@ Default device:
 EOF
 }
 
+explain_xcode_setup_error() {
+  cat <<'EOF' >&2
+
+Xcode has pending privileged setup or device-support installation.
+Run this from the Mac account with administrator access:
+
+  sudo xcodebuild -runFirstLaunch -checkForNewerComponents
+
+Then run this refresh script again.
+EOF
+}
+
+check_xcode_setup() {
+  set +e
+  xcodebuild -checkFirstLaunchStatus >/dev/null 2>&1
+  local exit_status=$?
+  set -e
+
+  if [[ "$exit_status" -ne 0 ]]; then
+    explain_xcode_setup_error
+    return "$exit_status"
+  fi
+}
+
 is_verbose() {
   [[ "$VERBOSE" == "1" || "$VERBOSE" == "true" || "$VERBOSE" == "yes" ]]
 }
@@ -34,7 +60,7 @@ print_log_summary() {
   local important
 
   important="$(
-    grep -Ei "error:|warning:|ERROR:|FAILED|No profiles|No Accounts|RequestDenied|invalid code signature|profile has not been explicitly trusted|connection reset|connection.*invalidated|could not be established|Transport error" "$log_file" | tail -n 30 || true
+    grep -Ei "error:|warning:|ERROR:|FAILED|No profiles|No Accounts|RequestDenied|invalid code signature|profile has not been explicitly trusted|connection reset|connection.*invalidated|could not be established|Transport error|Authorization is required|CoreSimulator is out of date|iOS .* is not installed" "$log_file" | tail -n 30 || true
   )"
 
   if [[ -n "$important" ]]; then
@@ -44,6 +70,44 @@ print_log_summary() {
     echo "Last output:" >&2
     tail -n 30 "$log_file" >&2
   fi
+}
+
+open_xcode_accounts() {
+  echo "Opening Xcode Accounts settings..." >&2
+  open -a Xcode "$ROOT_DIR/src/CleanTube.xcodeproj" >/dev/null 2>&1 || open -a Xcode >/dev/null 2>&1 || true
+
+  osascript >/dev/null 2>&1 <<'APPLESCRIPT' || {
+tell application "Xcode" to activate
+delay 1
+tell application "System Events"
+  tell process "Xcode"
+    set frontmost to true
+    keystroke "," using command down
+    delay 1
+    set didOpenAccounts to false
+    try
+      click button "Accounts" of toolbar 1 of window 1
+      set didOpenAccounts to true
+    end try
+    try
+      if didOpenAccounts is false then
+        click radio button "Accounts" of tab group 1 of window 1
+        set didOpenAccounts to true
+      end if
+    end try
+    try
+      if didOpenAccounts is false then
+        click button "Accounts" of window 1
+        set didOpenAccounts to true
+      end if
+    end try
+    if didOpenAccounts is false then error "Accounts control was not found"
+  end tell
+end tell
+APPLESCRIPT
+    echo "Could not switch Xcode to Accounts automatically. Use Xcode > Settings > Accounts." >&2
+    return 0
+  }
 }
 
 run_xcodegen() {
@@ -107,19 +171,35 @@ is_transient_device_error() {
   grep -qi "connection reset\\|connection.*invalidated\\|could not be established\\|Transport error" "$log_file"
 }
 
+is_xcode_account_error() {
+  local log_file="$1"
+  grep -qi "No Accounts" "$log_file"
+}
+
 explain_build_error() {
   local log_file="$1"
 
-  if grep -qi "No Accounts" "$log_file"; then
+  if grep -qi "Authorization is required\\|CoreSimulator is out of date\\|iOS .* is not installed" "$log_file"; then
+    explain_xcode_setup_error
+  fi
+
+  if grep -qi "No available simulator runtimes\\|No simulator runtime version\\|SimServiceContext supportedRuntimes" "$log_file"; then
+    cat <<'EOF' >&2
+
+Xcode could not use the installed iOS simulator runtime while compiling app assets.
+Refresh CoreSimulator's runtime state, then rerun this script:
+
+  xcrun simctl runtime scan-and-mount
+  xcrun simctl runtime match list -v
+
+If the SDK build points at a runtime build that is not installed, set a runtime match override to the installed iOS runtime build.
+EOF
+  elif grep -qi "No Accounts" "$log_file"; then
     cat <<'EOF' >&2
 
 Xcode could not renew the iOS development provisioning profiles because it does not see an Apple account.
-Open Xcode, then go to:
-
-  Xcode > Settings > Accounts > + > Apple Account
-
-Sign in with the Apple ID from Bitwarden, make sure your development team is available, then run this script again.
 EOF
+    open_xcode_accounts
   elif grep -qi "No profiles for 'com.local.CleanTube" "$log_file"; then
     cat <<'EOF' >&2
 
@@ -152,7 +232,9 @@ run_build_command() {
   fi
 
   echo "[failed] iOS build failed" >&2
-  print_log_summary "$log_file"
+  if ! is_xcode_account_error "$log_file"; then
+    print_log_summary "$log_file"
+  fi
   explain_build_error "$log_file"
   echo "Full log: $log_file" >&2
   return "$exit_status"
@@ -216,16 +298,19 @@ esac
 
 cd "$ROOT_DIR"
 
+check_xcode_setup
 run_xcodegen
 
-rm -rf "$DERIVED_DATA_PATH"
+rm -rf "$DERIVED_DATA_PATH" "$TARGET_PRODUCTS_PATH" "$TARGET_INTERMEDIATES_PATH"
 run_build_command xcodebuild \
   -quiet \
   -project src/CleanTube.xcodeproj \
-  -scheme CleanTube \
+  -target CleanTube \
   -configuration Debug \
-  -destination 'generic/platform=iOS' \
-  -derivedDataPath "$DERIVED_DATA_PATH" \
+  -sdk iphoneos \
+  CONFIGURATION_BUILD_DIR="$TARGET_PRODUCTS_PATH/Debug-iphoneos" \
+  OBJROOT="$TARGET_INTERMEDIATES_PATH" \
+  SYMROOT="$TARGET_PRODUCTS_PATH" \
   -allowProvisioningUpdates \
   build
 
