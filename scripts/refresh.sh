@@ -10,6 +10,8 @@ BUNDLE_ID="com.local.CleanTube"
 DEFAULT_DEVICE_ID="D8521F80-D6CB-5581-B0C4-C01FA445BD18"
 DEVICE="${1:-${CLEANTUBE_DEVICE:-${CLEANTUBE_DEVICE_ID:-$DEFAULT_DEVICE_ID}}}"
 VERBOSE="${CLEANTUBE_VERBOSE:-0}"
+AUTH_ENV_FILE="${CLEANTUBE_AUTH_ENV:-$HOME/.cleantube/xcode-auth.env}"
+XCODEBUILD_AUTH_ARGS=()
 
 print_help() {
   cat <<EOF
@@ -20,11 +22,55 @@ Environment:
   CLEANTUBE_DEVICE           Device identifier or name to install onto.
   CLEANTUBE_DEVICE_ID        Same as CLEANTUBE_DEVICE.
   CLEANTUBE_DEVICE_ATTEMPTS  Install/launch attempts for flaky wireless connections.
+  CLEANTUBE_AUTH_ENV         Optional env file with App Store Connect API key settings.
+                             This requires App Store Connect API access.
+  CLEANTUBE_ASC_KEY_PATH     Path to App Store Connect AuthKey_*.p8.
+  CLEANTUBE_ASC_KEY_ID       App Store Connect API key ID.
+  CLEANTUBE_ASC_ISSUER_ID    App Store Connect issuer ID.
   CLEANTUBE_VERBOSE=1        Show full command output instead of summarized checkpoints.
 
 Default device:
   $DEFAULT_DEVICE_ID
 EOF
+}
+
+load_xcodebuild_auth() {
+  if [[ -f "$AUTH_ENV_FILE" ]]; then
+    source "$AUTH_ENV_FILE"
+  fi
+
+  CLEANTUBE_ASC_KEY_PATH="${CLEANTUBE_ASC_KEY_PATH:-${APP_STORE_CONNECT_API_KEY_PATH:-}}"
+  CLEANTUBE_ASC_KEY_ID="${CLEANTUBE_ASC_KEY_ID:-${APP_STORE_CONNECT_API_KEY_ID:-}}"
+  CLEANTUBE_ASC_ISSUER_ID="${CLEANTUBE_ASC_ISSUER_ID:-${APP_STORE_CONNECT_API_KEY_ISSUER_ID:-}}"
+
+  if [[ -z "$CLEANTUBE_ASC_KEY_PATH" && -z "$CLEANTUBE_ASC_KEY_ID" && -z "$CLEANTUBE_ASC_ISSUER_ID" ]]; then
+    return 0
+  fi
+
+  if [[ -z "$CLEANTUBE_ASC_KEY_PATH" || -z "$CLEANTUBE_ASC_KEY_ID" || -z "$CLEANTUBE_ASC_ISSUER_ID" ]]; then
+    cat <<EOF >&2
+
+App Store Connect API key auth is partially configured.
+Set all three values in $AUTH_ENV_FILE:
+
+  CLEANTUBE_ASC_KEY_PATH=/absolute/path/AuthKey_XXXXXXXXXX.p8
+  CLEANTUBE_ASC_KEY_ID=XXXXXXXXXX
+  CLEANTUBE_ASC_ISSUER_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+EOF
+    return 1
+  fi
+
+  if [[ ! -f "$CLEANTUBE_ASC_KEY_PATH" ]]; then
+    echo "App Store Connect API key file was not found: $CLEANTUBE_ASC_KEY_PATH" >&2
+    return 1
+  fi
+
+  XCODEBUILD_AUTH_ARGS=(
+    -authenticationKeyPath "$CLEANTUBE_ASC_KEY_PATH"
+    -authenticationKeyID "$CLEANTUBE_ASC_KEY_ID"
+    -authenticationKeyIssuerID "$CLEANTUBE_ASC_ISSUER_ID"
+  )
+  echo "[ok] Using App Store Connect API key auth for provisioning"
 }
 
 explain_xcode_setup_error() {
@@ -155,7 +201,7 @@ On the iPhone, open:
 
   Settings > General > VPN & Device Management
 
-Trust the developer profile for this Apple Development account, then run this script again.
+Trust the developer profile for this Apple Development account, then open the app.
 EOF
   elif grep -qi "connection reset\\|connection.*invalidated\\|could not be established" "$log_file"; then
     cat <<'EOF' >&2
@@ -169,6 +215,11 @@ EOF
 is_transient_device_error() {
   local log_file="$1"
   grep -qi "connection reset\\|connection.*invalidated\\|could not be established\\|Transport error" "$log_file"
+}
+
+is_untrusted_profile_error() {
+  local log_file="$1"
+  grep -qi "profile has not been explicitly trusted\\|RequestDenied\\|invalid code signature" "$log_file"
 }
 
 is_xcode_account_error() {
@@ -195,9 +246,13 @@ Refresh CoreSimulator's runtime state, then rerun this script:
 If the SDK build points at a runtime build that is not installed, set a runtime match override to the installed iOS runtime build.
 EOF
   elif grep -qi "No Accounts" "$log_file"; then
-    cat <<'EOF' >&2
+    cat <<EOF >&2
 
 Xcode could not renew the iOS development provisioning profiles because it does not see an Apple account.
+For a free Apple ID, sign back into Xcode because Apple requires Xcode to renew personal-team profiles.
+If you have App Store Connect API access, you can avoid repeated Xcode sign-ins by configuring:
+
+  $AUTH_ENV_FILE
 EOF
     open_xcode_accounts
   elif grep -qi "No profiles for 'com.local.CleanTube" "$log_file"; then
@@ -281,6 +336,12 @@ run_device_command() {
       continue
     fi
 
+    if is_untrusted_profile_error "$log_file"; then
+      explain_device_error "$log_file"
+      rm -f "$log_file"
+      return "$exit_status"
+    fi
+
     echo "[failed] $label" >&2
     print_log_summary "$log_file"
     explain_device_error "$log_file"
@@ -299,6 +360,7 @@ esac
 cd "$ROOT_DIR"
 
 check_xcode_setup
+load_xcodebuild_auth
 run_xcodegen
 
 rm -rf "$DERIVED_DATA_PATH" "$TARGET_PRODUCTS_PATH" "$TARGET_INTERMEDIATES_PATH"
@@ -312,6 +374,7 @@ run_build_command xcodebuild \
   OBJROOT="$TARGET_INTERMEDIATES_PATH" \
   SYMROOT="$TARGET_PRODUCTS_PATH" \
   -allowProvisioningUpdates \
+  "${XCODEBUILD_AUTH_ARGS[@]}" \
   build
 
 if [[ ! -d "$APP_PATH" ]]; then
