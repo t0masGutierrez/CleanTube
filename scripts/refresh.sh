@@ -339,6 +339,10 @@ run_device_command() {
     if is_untrusted_profile_error "$log_file"; then
       explain_device_error "$log_file"
       rm -f "$log_file"
+      if [[ "$label" == "Launching app" ]]; then
+        echo "[ok] App installed; iOS is waiting for developer-profile trust"
+        return 0
+      fi
       return "$exit_status"
     fi
 
