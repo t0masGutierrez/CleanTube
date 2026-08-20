@@ -12,6 +12,47 @@ DEVICE="${1:-${CLEANTUBE_DEVICE:-${CLEANTUBE_DEVICE_ID:-$DEFAULT_DEVICE_ID}}}"
 VERBOSE="${CLEANTUBE_VERBOSE:-0}"
 AUTH_ENV_FILE="${CLEANTUBE_AUTH_ENV:-$HOME/.cleantube/xcode-auth.env}"
 XCODEBUILD_AUTH_ARGS=()
+ERROR_MESSAGE=""
+ERROR_REPORTED=0
+report_error() {
+  local message="$1"
+  printf '\nError: %s\n' "$message" >&2
+  ERROR_REPORTED=1
+}
+
+handle_exit() {
+  local exit_status="$1"
+  if [[ "$exit_status" -ne 0 && "$ERROR_REPORTED" -eq 0 ]]; then
+    report_error "${ERROR_MESSAGE:-Refresh failed.}"
+  fi
+}
+
+trap 'handle_exit "$?"' EXIT
+
+fail_refresh() {
+  ERROR_MESSAGE="$1"
+  report_error "$ERROR_MESSAGE"
+  exit 1
+}
+
+error_message_from_log() {
+  local log_file="$1"
+  local message
+
+  message="$({
+    grep -Ei "error:|failed|no profiles|no accounts|requestdenied|invalid code signature|connection reset|connection.*invalidated|could not be established|transport error|device unavailable|authorization is required|coresimulator is out of date|iOS .* is not installed" "$log_file" || true
+  } | tail -n 1 | sed 's/\r//g')"
+
+  if [[ -z "$message" ]]; then
+    message="$(tail -n 1 "$log_file" 2>/dev/null | sed 's/\r//g' || true)"
+  fi
+
+  printf '%s' "${message:-Refresh failed.}"
+}
+
+set_error_from_log() {
+  ERROR_MESSAGE="$(error_message_from_log "$1")"
+}
 
 print_help() {
   cat <<EOF
@@ -27,7 +68,7 @@ Environment:
   CLEANTUBE_ASC_KEY_PATH     Path to App Store Connect AuthKey_*.p8.
   CLEANTUBE_ASC_KEY_ID       App Store Connect API key ID.
   CLEANTUBE_ASC_ISSUER_ID    App Store Connect issuer ID.
-  CLEANTUBE_VERBOSE=1        Show full command output instead of summarized checkpoints.
+  CLEANTUBE_VERBOSE=1        Show full command output for debugging.
 
 Default device:
   $DEFAULT_DEVICE_ID
@@ -48,20 +89,12 @@ load_xcodebuild_auth() {
   fi
 
   if [[ -z "$CLEANTUBE_ASC_KEY_PATH" || -z "$CLEANTUBE_ASC_KEY_ID" || -z "$CLEANTUBE_ASC_ISSUER_ID" ]]; then
-    cat <<EOF >&2
-
-App Store Connect API key auth is partially configured.
-Set all three values in $AUTH_ENV_FILE:
-
-  CLEANTUBE_ASC_KEY_PATH=/absolute/path/AuthKey_XXXXXXXXXX.p8
-  CLEANTUBE_ASC_KEY_ID=XXXXXXXXXX
-  CLEANTUBE_ASC_ISSUER_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-EOF
+    ERROR_MESSAGE="App Store Connect API key authentication is incomplete in $AUTH_ENV_FILE."
     return 1
   fi
 
   if [[ ! -f "$CLEANTUBE_ASC_KEY_PATH" ]]; then
-    echo "App Store Connect API key file was not found: $CLEANTUBE_ASC_KEY_PATH" >&2
+    ERROR_MESSAGE="App Store Connect API key file was not found: $CLEANTUBE_ASC_KEY_PATH"
     return 1
   fi
 
@@ -70,19 +103,10 @@ EOF
     -authenticationKeyID "$CLEANTUBE_ASC_KEY_ID"
     -authenticationKeyIssuerID "$CLEANTUBE_ASC_ISSUER_ID"
   )
-  echo "[ok] Using App Store Connect API key auth for provisioning"
 }
 
 explain_xcode_setup_error() {
-  cat <<'EOF' >&2
-
-Xcode has pending privileged setup or device-support installation.
-Run this from the Mac account with administrator access:
-
-  sudo xcodebuild -runFirstLaunch -checkForNewerComponents
-
-Then run this refresh script again.
-EOF
+  ERROR_MESSAGE="Xcode needs first-launch setup. Run sudo xcodebuild -runFirstLaunch -checkForNewerComponents."
 }
 
 check_xcode_setup() {
@@ -101,28 +125,10 @@ is_verbose() {
   [[ "$VERBOSE" == "1" || "$VERBOSE" == "true" || "$VERBOSE" == "yes" ]]
 }
 
-print_log_summary() {
-  local log_file="$1"
-  local important
-
-  important="$(
-    grep -Ei "error:|warning:|ERROR:|FAILED|No profiles|No Accounts|RequestDenied|invalid code signature|profile has not been explicitly trusted|connection reset|connection.*invalidated|could not be established|Transport error|Authorization is required|CoreSimulator is out of date|iOS .* is not installed" "$log_file" | tail -n 30 || true
-  )"
-
-  if [[ -n "$important" ]]; then
-    echo "Important output:" >&2
-    echo "$important" >&2
-  else
-    echo "Last output:" >&2
-    tail -n 30 "$log_file" >&2
-  fi
-}
-
 open_xcode_accounts() {
-  echo "Opening Xcode Accounts settings..." >&2
   open -a Xcode "$ROOT_DIR/src/CleanTube.xcodeproj" >/dev/null 2>&1 || open -a Xcode >/dev/null 2>&1 || true
 
-  osascript >/dev/null 2>&1 <<'APPLESCRIPT' || {
+  osascript >/dev/null 2>&1 <<'APPLESCRIPT' || true
 tell application "Xcode" to activate
 delay 1
 tell application "System Events"
@@ -151,9 +157,6 @@ tell application "System Events"
   end tell
 end tell
 APPLESCRIPT
-    echo "Could not switch Xcode to Accounts automatically. Use Xcode > Settings > Accounts." >&2
-    return 0
-  }
 }
 
 run_xcodegen() {
@@ -161,7 +164,6 @@ run_xcodegen() {
   local exit_status
   log_file="$(mktemp "${TMPDIR:-/tmp}/cleantube-xcodegen.XXXXXX")"
 
-  echo "Generating Xcode project..."
   set +e
   if is_verbose; then
     (cd "$ROOT_DIR/src" && xcodegen generate --spec project.yml) 2>&1 | tee "$log_file"
@@ -173,14 +175,12 @@ run_xcodegen() {
   set -e
 
   if [[ "$exit_status" -eq 0 ]]; then
-    echo "[ok] Xcode project generated"
     rm -f "$log_file"
     return 0
   fi
 
-  echo "[failed] Xcode project generation failed" >&2
-  print_log_summary "$log_file"
-  echo "Full log: $log_file" >&2
+  set_error_from_log "$log_file"
+  rm -f "$log_file"
   return "$exit_status"
 }
 
@@ -188,27 +188,9 @@ explain_device_error() {
   local log_file="$1"
 
   if grep -qi "DeviceLocked\\|device is locked\\|kAMDMobileImageMounterDeviceLocked" "$log_file"; then
-    cat <<'EOF' >&2
-
-The iPhone is reachable, but it is locked.
-Unlock it, keep it awake on the Home Screen, then run this script again.
-EOF
-  elif grep -qi "profile has not been explicitly trusted\\|RequestDenied\\|invalid code signature" "$log_file"; then
-    cat <<'EOF' >&2
-
-iOS installed the app but refused to launch it because the developer profile is not trusted.
-On the iPhone, open:
-
-  Settings > General > VPN & Device Management
-
-Trust the developer profile for this Apple Development account, then open the app.
-EOF
+    ERROR_MESSAGE="The iPhone is locked. Unlock it and try again."
   elif grep -qi "connection reset\\|connection.*invalidated\\|could not be established" "$log_file"; then
-    cat <<'EOF' >&2
-
-The Mac can see the iPhone, but the device connection dropped.
-Keep the phone unlocked and nearby. If wireless install keeps failing, plug it in once and rerun this script.
-EOF
+    ERROR_MESSAGE="The iPhone connection dropped. Keep it unlocked and try again."
   fi
 }
 
@@ -222,45 +204,20 @@ is_untrusted_profile_error() {
   grep -qi "profile has not been explicitly trusted\\|RequestDenied\\|invalid code signature" "$log_file"
 }
 
-is_xcode_account_error() {
-  local log_file="$1"
-  grep -qi "No Accounts" "$log_file"
-}
-
 explain_build_error() {
   local log_file="$1"
 
   if grep -qi "Authorization is required\\|CoreSimulator is out of date\\|iOS .* is not installed" "$log_file"; then
     explain_xcode_setup_error
-  fi
-
-  if grep -qi "No available simulator runtimes\\|No simulator runtime version\\|SimServiceContext supportedRuntimes" "$log_file"; then
-    cat <<'EOF' >&2
-
-Xcode could not use the installed iOS simulator runtime while compiling app assets.
-Refresh CoreSimulator's runtime state, then rerun this script:
-
-  xcrun simctl runtime scan-and-mount
-  xcrun simctl runtime match list -v
-
-If the SDK build points at a runtime build that is not installed, set a runtime match override to the installed iOS runtime build.
-EOF
+  elif grep -qi "No available simulator runtimes\\|No simulator runtime version\\|SimServiceContext supportedRuntimes" "$log_file"; then
+    ERROR_MESSAGE="Xcode could not use the installed iOS simulator runtime."
   elif grep -qi "No Accounts" "$log_file"; then
-    cat <<EOF >&2
-
-Xcode could not renew the iOS development provisioning profiles because it does not see an Apple account.
-For a free Apple ID, sign back into Xcode because Apple requires Xcode to renew personal-team profiles.
-If you have App Store Connect API access, you can avoid repeated Xcode sign-ins by configuring:
-
-  $AUTH_ENV_FILE
-EOF
+    ERROR_MESSAGE="Xcode could not renew the iOS development profile because no Apple account is available."
     open_xcode_accounts
   elif grep -qi "No profiles for 'com.local.CleanTube" "$log_file"; then
-    cat <<'EOF' >&2
-
-Xcode could not find valid CleanTube provisioning profiles.
-They may have expired. Once your Apple account is available in Xcode, rerun this script so automatic signing can create fresh profiles.
-EOF
+    ERROR_MESSAGE="Xcode could not find a valid CleanTube provisioning profile."
+  else
+    set_error_from_log "$log_file"
   fi
 }
 
@@ -269,7 +226,6 @@ run_build_command() {
   local exit_status
   log_file="$(mktemp "${TMPDIR:-/tmp}/cleantube-build.XXXXXX")"
 
-  echo "Building fresh iOS app..."
   set +e
   if is_verbose; then
     "$@" 2>&1 | tee "$log_file"
@@ -281,17 +237,12 @@ run_build_command() {
   set -e
 
   if [[ "$exit_status" -eq 0 ]]; then
-    echo "[ok] iOS app built and signed"
     rm -f "$log_file"
     return 0
   fi
 
-  echo "[failed] iOS build failed" >&2
-  if ! is_xcode_account_error "$log_file"; then
-    print_log_summary "$log_file"
-  fi
   explain_build_error "$log_file"
-  echo "Full log: $log_file" >&2
+  rm -f "$log_file"
   return "$exit_status"
 }
 
@@ -307,12 +258,6 @@ run_device_command() {
   for attempt in $(seq 1 "$attempts"); do
     log_file="$(mktemp "${TMPDIR:-/tmp}/cleantube-device.XXXXXX")"
 
-    if [[ "$attempt" -eq 1 ]]; then
-      echo "$label..."
-    else
-      echo "$label retry $attempt/$attempts..."
-    fi
-
     set +e
     if is_verbose; then
       "$@" 2>&1 | tee "$log_file"
@@ -324,32 +269,30 @@ run_device_command() {
     set -e
 
     if [[ "$exit_status" -eq 0 ]]; then
-      echo "[ok] $label"
       rm -f "$log_file"
       return 0
     fi
 
     if [[ "$attempt" -lt "$attempts" ]] && is_transient_device_error "$log_file"; then
       rm -f "$log_file"
-      echo "[retry] Device connection dropped; waiting before retry..." >&2
       sleep 3
       continue
     fi
 
     if is_untrusted_profile_error "$log_file"; then
-      explain_device_error "$log_file"
       rm -f "$log_file"
       if [[ "$label" == "Launching app" ]]; then
-        echo "[ok] App installed; iOS is waiting for developer-profile trust"
         return 0
       fi
+      ERROR_MESSAGE="iOS rejected the developer profile."
       return "$exit_status"
     fi
 
-    echo "[failed] $label" >&2
-    print_log_summary "$log_file"
     explain_device_error "$log_file"
-    echo "Full log: $log_file" >&2
+    if [[ -z "$ERROR_MESSAGE" ]]; then
+      set_error_from_log "$log_file"
+    fi
+    rm -f "$log_file"
     return "$exit_status"
   done
 }
@@ -361,14 +304,26 @@ case "${1:-}" in
     ;;
 esac
 
+printf 'Refreshing...'
 cd "$ROOT_DIR"
 
-check_xcode_setup
-load_xcodebuild_auth
-run_xcodegen
+if ! check_xcode_setup; then
+  fail_refresh "${ERROR_MESSAGE:-Xcode setup failed.}"
+fi
 
-rm -rf "$DERIVED_DATA_PATH" "$TARGET_PRODUCTS_PATH" "$TARGET_INTERMEDIATES_PATH"
-run_build_command xcodebuild \
+if ! load_xcodebuild_auth; then
+  fail_refresh "${ERROR_MESSAGE:-Xcode authentication setup failed.}"
+fi
+
+if ! run_xcodegen; then
+  fail_refresh "${ERROR_MESSAGE:-Xcode project generation failed.}"
+fi
+
+if ! rm -rf "$DERIVED_DATA_PATH" "$TARGET_PRODUCTS_PATH" "$TARGET_INTERMEDIATES_PATH"; then
+  fail_refresh "Could not clear old build files."
+fi
+
+if ! run_build_command xcodebuild \
   -quiet \
   -project src/CleanTube.xcodeproj \
   -target CleanTube \
@@ -379,22 +334,26 @@ run_build_command xcodebuild \
   SYMROOT="$TARGET_PRODUCTS_PATH" \
   -allowProvisioningUpdates \
   "${XCODEBUILD_AUTH_ARGS[@]}" \
-  build
-
-if [[ ! -d "$APP_PATH" ]]; then
-  echo "Expected app was not built: $APP_PATH" >&2
-  exit 1
+  build; then
+  fail_refresh "${ERROR_MESSAGE:-iOS build failed.}"
 fi
 
-echo "Refreshing CleanTube on device: $DEVICE"
-run_device_command "Installing app" \
+if [[ ! -d "$APP_PATH" ]]; then
+  fail_refresh "The expected iOS app was not built."
+fi
+
+if ! run_device_command "Installing app" \
   xcrun devicectl device install app \
     --device "$DEVICE" \
-    "$APP_PATH"
+    "$APP_PATH"; then
+  fail_refresh "${ERROR_MESSAGE:-App installation failed.}"
+fi
 
-run_device_command "Launching app" \
+if ! run_device_command "Launching app" \
   xcrun devicectl device process launch \
     --device "$DEVICE" \
-    "$BUNDLE_ID"
+    "$BUNDLE_ID"; then
+  fail_refresh "${ERROR_MESSAGE:-App launch failed.}"
+fi
 
-echo "CleanTube refreshed on device."
+printf ' Refreshed.\n'
