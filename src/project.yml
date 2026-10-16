@@ -6,6 +6,7 @@ options:
 settings:
   base:
     CODE_SIGN_STYLE: Automatic
+    # Use the certificate's OU (team ID), not the ID in its display name.
     DEVELOPMENT_TEAM: 2PWJB7XYQL
     SWIFT_VERSION: "6.0"
     MARKETING_VERSION: "0.1.0"

@@ -52,7 +52,7 @@ npm test
 npm run test:userscript:browser
 ```
 
-The build reads `src/Extension/core.js`, `src/Extension/content.css`, `src/Extension/manifest.json`, and `src/Userscript/runtime.js`. The manifest supplies the version and its address list is checked against the three supported YouTube addresses. It writes `userscripts/CleanTube.user.js`. Node.js is needed only to rebuild the file. Xcode and a connected iPhone are not needed.
+The build reads `src/Extension/core.js`, `src/Extension/content.css`, `src/Extension/manifest.json`, and `src/Userscript/runtime.js`. The manifest supplies the version and its address list is checked against the three supported YouTube addresses. It writes `userscripts/CleanTube.user.js`. Node.js 22.12 or later is needed for development and tests. Xcode and a connected iPhone are not needed.
 
 The browser test uses installed Google Chrome. Set `CHROME_PATH` to use another Chrome executable. It uses local test pages and does not access your YouTube account. These checks do not replace a test with Userscripts in iPhone Safari.
 
@@ -82,3 +82,6 @@ Measured on 2026-10-16 with this local test:
 | Scheduled scan time | 677.91 ms | 4.57 ms |
 
 These are one-run local results. They do not measure iPhone Safari or YouTube network and rendering time.
+
+
+For the older Xcode app, `npm run ios:refresh` finds the selected iPhone, builds for that device, and installs without opening the app. Use `CLEANTUBE_DEVICE` to select another phone. Set the signing team in `src/project.yml`. A failed build saves its log in `build/refresh-build.log`. This command is separate from userscript installation and needs Xcode and access to the iPhone.

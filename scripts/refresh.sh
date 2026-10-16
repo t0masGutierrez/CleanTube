@@ -6,9 +6,9 @@ DERIVED_DATA_PATH="$ROOT_DIR/build/DerivedData"
 TARGET_PRODUCTS_PATH="$ROOT_DIR/build/TargetProducts"
 TARGET_INTERMEDIATES_PATH="$ROOT_DIR/build/TargetIntermediates"
 APP_PATH="$TARGET_PRODUCTS_PATH/Debug-iphoneos/CleanTube.app"
-BUNDLE_ID="com.local.CleanTube"
 DEFAULT_DEVICE_ID="D8521F80-D6CB-5581-B0C4-C01FA445BD18"
 DEVICE="${1:-${CLEANTUBE_DEVICE:-${CLEANTUBE_DEVICE_ID:-$DEFAULT_DEVICE_ID}}}"
+XCODE_DESTINATION_ID="${CLEANTUBE_XCODE_DESTINATION_ID:-}"
 VERBOSE="${CLEANTUBE_VERBOSE:-0}"
 AUTH_ENV_FILE="${CLEANTUBE_AUTH_ENV:-$HOME/.cleantube/xcode-auth.env}"
 XCODEBUILD_AUTH_ARGS=()
@@ -62,7 +62,9 @@ Usage:
 Environment:
   CLEANTUBE_DEVICE           Device identifier or name to install onto.
   CLEANTUBE_DEVICE_ID        Same as CLEANTUBE_DEVICE.
-  CLEANTUBE_DEVICE_ATTEMPTS  Install/launch attempts for flaky wireless connections.
+  CLEANTUBE_DEVICE_ATTEMPTS  Install attempts for flaky wireless connections.
+  CLEANTUBE_XCODE_DESTINATION_ID
+                             Optional physical iPhone UDID used by Xcode signing.
   CLEANTUBE_AUTH_ENV         Optional env file with App Store Connect API key settings.
                              This requires App Store Connect API access.
   CLEANTUBE_ASC_KEY_PATH     Path to App Store Connect AuthKey_*.p8.
@@ -118,6 +120,38 @@ check_xcode_setup() {
   if [[ "$exit_status" -ne 0 ]]; then
     explain_xcode_setup_error
     return "$exit_status"
+  fi
+}
+
+resolve_xcode_destination() {
+  local info_file
+  local exit_status
+
+  if [[ -n "$XCODE_DESTINATION_ID" ]]; then
+    return 0
+  fi
+
+  info_file="$(mktemp "${TMPDIR:-/tmp}/cleantube-device-info.XXXXXX")"
+
+  set +e
+  xcrun devicectl device info details \
+    --device "$DEVICE" \
+    --json-output "$info_file" >/dev/null 2>&1
+  exit_status=$?
+  set -e
+
+  if [[ "$exit_status" -ne 0 ]]; then
+    rm -f "$info_file"
+    ERROR_MESSAGE="The iPhone is unavailable. Connect it with a USB cable, unlock it, and accept Trust This Computer if asked. Then try again."
+    return "$exit_status"
+  fi
+
+  XCODE_DESTINATION_ID="$(plutil -extract result.hardwareProperties.udid raw -o - "$info_file" 2>/dev/null || true)"
+  rm -f "$info_file"
+
+  if [[ -z "$XCODE_DESTINATION_ID" ]]; then
+    ERROR_MESSAGE="Could not determine the iPhone destination for Xcode."
+    return 1
   fi
 }
 
@@ -191,6 +225,8 @@ explain_device_error() {
     ERROR_MESSAGE="The iPhone is locked. Unlock it and try again."
   elif grep -qi "connection reset\\|connection.*invalidated\\|could not be established" "$log_file"; then
     ERROR_MESSAGE="The iPhone connection dropped. Keep it unlocked and try again."
+  elif grep -qi "unable to locate a device\\|device unavailable" "$log_file"; then
+    ERROR_MESSAGE="The iPhone is unavailable. Connect it with a USB cable, unlock it, and accept Trust This Computer if asked. Then try again."
   fi
 }
 
@@ -211,11 +247,11 @@ explain_build_error() {
     explain_xcode_setup_error
   elif grep -qi "No available simulator runtimes\\|No simulator runtime version\\|SimServiceContext supportedRuntimes" "$log_file"; then
     ERROR_MESSAGE="Xcode could not use the installed iOS simulator runtime."
-  elif grep -qi "No Accounts" "$log_file"; then
-    ERROR_MESSAGE="Xcode could not renew the iOS development profile because no Apple account is available."
+  elif grep -qi "No Account" "$log_file"; then
+    ERROR_MESSAGE="Xcode has no account for the selected team. Check DEVELOPMENT_TEAM in src/project.yml and sign in to that team in Xcode > Settings > Accounts. Use the certificate OU as the team ID, not the ID in its display name."
     open_xcode_accounts
   elif grep -qi "No profiles for 'com.local.CleanTube" "$log_file"; then
-    ERROR_MESSAGE="Xcode could not find a valid CleanTube provisioning profile."
+    ERROR_MESSAGE="Xcode could not find a valid CleanTube provisioning profile. Check the team in src/project.yml and the account in Xcode > Settings > Accounts. Enable automatic signing for both app targets."
   else
     set_error_from_log "$log_file"
   fi
@@ -242,6 +278,9 @@ run_build_command() {
   fi
 
   explain_build_error "$log_file"
+  if mkdir -p "$ROOT_DIR/build" && cp "$log_file" "$ROOT_DIR/build/refresh-build.log"; then
+    ERROR_MESSAGE="$ERROR_MESSAGE Full build log: $ROOT_DIR/build/refresh-build.log"
+  fi
   rm -f "$log_file"
   return "$exit_status"
 }
@@ -281,10 +320,7 @@ run_device_command() {
 
     if is_untrusted_profile_error "$log_file"; then
       rm -f "$log_file"
-      if [[ "$label" == "Launching app" ]]; then
-        return 0
-      fi
-      ERROR_MESSAGE="iOS rejected the developer profile."
+      ERROR_MESSAGE="iOS rejected the developer profile while $label. On the iPhone, open Settings > General > VPN & Device Management and trust the developer app. Then try again."
       return "$exit_status"
     fi
 
@@ -319,6 +355,10 @@ if ! run_xcodegen; then
   fail_refresh "${ERROR_MESSAGE:-Xcode project generation failed.}"
 fi
 
+if ! resolve_xcode_destination; then
+  fail_refresh "${ERROR_MESSAGE:-Could not find the iPhone for Xcode.}"
+fi
+
 if ! rm -rf "$DERIVED_DATA_PATH" "$TARGET_PRODUCTS_PATH" "$TARGET_INTERMEDIATES_PATH"; then
   fail_refresh "Could not clear old build files."
 fi
@@ -326,13 +366,15 @@ fi
 if ! run_build_command xcodebuild \
   -quiet \
   -project src/CleanTube.xcodeproj \
-  -target CleanTube \
+  -scheme CleanTube \
+  -destination "id=$XCODE_DESTINATION_ID" \
   -configuration Debug \
   -sdk iphoneos \
   CONFIGURATION_BUILD_DIR="$TARGET_PRODUCTS_PATH/Debug-iphoneos" \
   OBJROOT="$TARGET_INTERMEDIATES_PATH" \
   SYMROOT="$TARGET_PRODUCTS_PATH" \
   -allowProvisioningUpdates \
+  -allowProvisioningDeviceRegistration \
   "${XCODEBUILD_AUTH_ARGS[@]}" \
   build; then
   fail_refresh "${ERROR_MESSAGE:-iOS build failed.}"
@@ -347,13 +389,6 @@ if ! run_device_command "Installing app" \
     --device "$DEVICE" \
     "$APP_PATH"; then
   fail_refresh "${ERROR_MESSAGE:-App installation failed.}"
-fi
-
-if ! run_device_command "Launching app" \
-  xcrun devicectl device process launch \
-    --device "$DEVICE" \
-    "$BUNDLE_ID"; then
-  fail_refresh "${ERROR_MESSAGE:-App launch failed.}"
 fi
 
 printf ' Refreshed.\n'
