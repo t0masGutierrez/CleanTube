@@ -123,7 +123,9 @@
       return [];
     }
     try {
-      return Array.from(rootNode.querySelectorAll(selector));
+      const matches = Array.from(rootNode.querySelectorAll(selector));
+      if (rootNode.matches && rootNode.matches(selector)) matches.unshift(rootNode);
+      return matches;
     } catch (error) {
       return [];
     }
@@ -200,10 +202,17 @@
     return metadataContainsAny(element, ["/post/", "backstagepost", "communitypost"]);
   }
 
+  const originalState = new WeakMap();
+
   function hideElement(element, reason) {
     if (!element || element.dataset && element.dataset.cleantubeHidden) {
       return false;
     }
+    originalState.set(element, {
+      display: element.style.getPropertyValue("display"),
+      priority: element.style.getPropertyPriority("display"),
+      ariaHidden: element.getAttribute("aria-hidden")
+    });
     if (element.dataset) {
       element.dataset.cleantubeHidden = reason || "hidden";
     } else {
@@ -220,10 +229,14 @@
     let count = 0;
     for (const element of queryAll(rootNode, "[data-cleantube-hidden]")) {
       element.removeAttribute("data-cleantube-hidden");
-      element.removeAttribute("aria-hidden");
+      const saved = originalState.get(element);
+      if (saved && saved.ariaHidden !== null) element.setAttribute("aria-hidden", saved.ariaHidden);
+      else element.removeAttribute("aria-hidden");
       if (element.style && element.style.display === "none") {
-        element.style.removeProperty("display");
+        if (saved && saved.display) element.style.setProperty("display", saved.display, saved.priority);
+        else element.style.removeProperty("display");
       }
+      originalState.delete(element);
       count += 1;
     }
     return count;
@@ -265,14 +278,18 @@
       const label = element.getAttribute("aria-label") || "";
       const text = element.textContent || "";
       const isShortsLink = href && isShortsUrl(href, baseURI);
-      const isShortsNav = textLooksLikeShorts(title) || textLooksLikeShorts(label) || textLooksLikeShorts(text);
+      const target = findShortsRemovalTarget(element);
+      const isNavigation = target && (
+        target.matches("ytd-guide-entry-renderer,ytd-mini-guide-entry-renderer,ytm-pivot-bar-item-renderer,tp-yt-paper-item") ||
+        target === element && !target.matches(SHORTS_TARGET_SELECTORS) && normalizePath(href, baseURI) !== "/watch"
+      );
+      const isShortsNav = isNavigation && (textLooksLikeShorts(title) || textLooksLikeShorts(label) || textLooksLikeShorts(text));
       const isShortsMetadata = metadataLooksLikeShorts(element);
 
       if (!isShortsLink && !isShortsNav && !isShortsMetadata) {
         continue;
       }
 
-      const target = findShortsRemovalTarget(element);
       const reason = isShortsMetadata && !isShortsLink ? "shorts-metadata" : isShortsLink ? "shorts-link" : "shorts-nav";
       if (target && hideElement(target, reason)) {
         hidden += 1;

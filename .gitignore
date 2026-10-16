@@ -5,7 +5,6 @@
 node_modules/
 
 # Generated test/build artifacts
-tests/
 build/
 CleanTube-webextension.zip
 src/Extension/_metadata/
@@ -20,3 +19,6 @@ xcuserdata/
 *.ipa
 *.xcarchive
 *.dSYM.zip
+
+# Local Xcode workspace preferences
+*.xcsettings
