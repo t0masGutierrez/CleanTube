@@ -4,7 +4,10 @@
   "private": true,
   "type": "commonjs",
   "scripts": {
-    "build": "npm run icons:generate && npm run build:xcodeproj && npm run validate:extension && npm test && npm run test:e2e && npm run package:zip",
+    "build:userscript": "node scripts/build-userscript.js",
+    "test:userscript:browser": "npm run build:userscript && node scripts/test-userscript-browser.js",
+    "pretest": "npm run build:userscript",
+    "build": "npm run build:userscript",
     "build:xcodeproj": "cd src && xcodegen generate --spec project.yml",
     "browser:install": "npx @puppeteer/browsers install chrome@stable --path build/browsers --format '{{path}}'",
     "clean": "rm -rf build CleanTube-webextension.zip",
@@ -13,7 +16,9 @@
     "test": "node --test tests/*.test.js",
     "test:e2e": "npm run browser:install --silent && node scripts/e2e-chrome-extension.js",
     "validate:extension": "node scripts/validate-extension.js",
-    "package:zip": "rm -f CleanTube-webextension.zip && cd src/Extension && zip -rq ../../CleanTube-webextension.zip ."
+    "package:zip": "rm -f CleanTube-webextension.zip && cd src/Extension && zip -rq ../../CleanTube-webextension.zip .",
+    "build:ios": "npm run icons:generate && npm run build:xcodeproj && npm run validate:extension && npm test && npm run test:e2e && npm run package:zip",
+    "benchmark:userscript": "node scripts/benchmark-userscript.js"
   },
   "devDependencies": {
     "jsdom": "^26.1.0",

@@ -28,7 +28,6 @@ html:not(.cleantube-shorts-allowed) ytm-rich-section-renderer:has(a[href*="/shor
 html:not(.cleantube-shorts-allowed) ytm-reel-shelf-renderer,
 html:not(.cleantube-shorts-allowed) ytm-shorts-lockup-view-model,
 html:not(.cleantube-shorts-allowed) ytm-shorts-carousel,
-html:not(.cleantube-shorts-allowed) a[title="Shorts"],
 html:not(.cleantube-shorts-allowed) a[href^="/shorts"],
 html:not(.cleantube-shorts-allowed) a[href*="/shorts/"] {
   display: var(--cleantube-hidden-display);
